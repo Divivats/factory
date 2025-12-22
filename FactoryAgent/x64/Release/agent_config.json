@@ -1,0 +1,9 @@
+{
+    "configFilePath": "C:\\LAI\\LAI-Operational\\config.ini",
+    "lineNumber": 1,
+    "logFilePath": "C:\\LAI\\LAI-WorkData\\Log",
+    "modelFolderPath": "C:\\LAI\\LAI-Operational\\Model",
+    "pcId": 0,
+    "pcNumber": 69,
+    "serverUrl": "http://192.168.168.223:5000"
+}

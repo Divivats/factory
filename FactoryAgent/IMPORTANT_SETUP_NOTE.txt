@@ -1,0 +1,38 @@
+===============================================================================
+IMPORTANT: Before Building the C++ Agent
+===============================================================================
+
+You MUST download the nlohmann JSON library header file before building.
+
+Steps:
+------
+
+1. Open your web browser
+
+2. Go to: https://github.com/nlohmann/json/releases/latest
+
+3. Look for "json.hpp" in the Assets section
+
+4. Click on "json.hpp" to download it
+
+5. Move the downloaded file to this location:
+   FactoryAgent/include/json.hpp
+
+6. Now you can open and build the Visual Studio project
+
+Alternative Direct Link:
+-----------------------
+https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp
+
+You can also:
+- Right-click the link above
+- Choose "Save As"
+- Save to: FactoryAgent/include/json.hpp
+
+Why is this needed?
+------------------
+The C++ agent uses the nlohmann/json library for JSON parsing.
+This is a single-header library (no compilation needed).
+We don't include it in the project files due to licensing distribution.
+
+===============================================================================
