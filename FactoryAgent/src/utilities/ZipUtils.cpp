@@ -6,6 +6,10 @@ bool ZipUtils::ExtractZip(const std::string& zipPath, const std::string& destina
         return false;
     }
 
+    if (!FileUtils::FolderExists(destinationPath)) {
+        FileUtils::CreateFolder(destinationPath);
+    }
+
     std::string cmd = "powershell.exe -NoProfile -Command \"Expand-Archive -Path '" +
         zipPath + "' -DestinationPath '" + destinationPath + "' -Force\"";
 
@@ -18,9 +22,24 @@ bool ZipUtils::CreateZip(const std::string& folderPath, const std::string& zipPa
         return false;
     }
 
+    if (FileUtils::FileExists(zipPath)) {
+        FileUtils::DeleteFile(zipPath);
+    }
+
+    // Append "\*" to folder path to zip the CONTENTS, not the folder itself.
+    // Example: "C:\Models\ModelA\*" -> Zips files inside ModelA
+    std::string sourcePath = folderPath;
+    if (sourcePath.back() == '\\') {
+        sourcePath.pop_back();
+    }
+    sourcePath += "\\*";
+
+    // Standard Compress-Archive command
     std::string cmd = "powershell.exe -NoProfile -Command \"Compress-Archive -Path '" +
-        folderPath + "' -DestinationPath '" + zipPath + "' -Force\"";
+        sourcePath + "' -DestinationPath '" + zipPath + "' -Force\"";
 
     int result = system(cmd.c_str());
-    return (result == 0);
+
+    // Check if file was created
+    return (result == 0 && FileUtils::FileExists(zipPath));
 }
