@@ -28,6 +28,15 @@ namespace FactoryMonitoringWeb.Models
 
         public bool IsActive { get; set; } = true;
 
+        // Model Library Enhancement
+        public bool IsTemplate { get; set; } = false;
+
+        [StringLength(500)]
+        public string? Description { get; set; }
+
+        [StringLength(100)]
+        public string? Category { get; set; }
+
         // Navigation properties
         public virtual ICollection<ModelDistribution> ModelDistributions { get; set; } = new List<ModelDistribution>();
     }

@@ -1,12 +1,6 @@
 #ifndef HEARTBEAT_SERVICE_H
 #define HEARTBEAT_SERVICE_H
 
-/*
- * HeartbeatService.h
- * Handles heartbeat communication with server
- * Single Responsibility: Heartbeat only
- */
-
 #include "../common/Types.h"
 #include "../network/HttpClient.h"
 #include "../../third_party/json/json.hpp"

@@ -1,11 +1,6 @@
 #ifndef TRAY_ICON_H
 #define TRAY_ICON_H
 
-/*
- * TrayIcon.h
- * System tray icon management
- */
-
 #include <windows.h>
 #include <shellapi.h>
 
@@ -28,7 +23,6 @@ private:
     bool created_;
 
     TrayIcon(const TrayIcon&);
-    TrayIcon& operator=(const TrayIcon&);
 };
 
 #endif

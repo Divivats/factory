@@ -89,6 +89,15 @@ bool AgentCore::IsRunning() const {
     return isRunning_;
 }
 
+AgentStatus AgentCore::GetStatus() const {
+    AgentStatus status;
+    status.isConnected = (connectionFailureCount_ == 0);
+    status.pcId = settings_.pcId;
+    status.lineNumber = settings_.lineNumber;
+    status.connectionFailures = connectionFailureCount_;
+    return status;
+}
+
 DWORD WINAPI AgentCore::WorkerThreadProc(LPVOID param) {
     AgentCore* core = (AgentCore*)param;
     core->WorkerLoop();
@@ -142,7 +151,11 @@ void AgentCore::WorkerLoop() {
         if (registered) {
             json commands;
             bool heartbeatSuccess = heartbeatService_->SendHeartbeat(
-                settings_.pcId, false, httpClient_, &commands);
+                settings_.pcId, 
+                processMonitor_->IsProcessRunning(settings_.exeName),
+                httpClient_, 
+                &commands
+            );
 
             if (!heartbeatSuccess) {
                 connectionFailureCount_++;

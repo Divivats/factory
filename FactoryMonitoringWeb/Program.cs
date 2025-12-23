@@ -16,6 +16,9 @@ builder.Services.AddControllersWithViews()
             Newtonsoft.Json.ReferenceLoopHandling.Ignore;
         options.SerializerSettings.NullValueHandling =
             Newtonsoft.Json.NullValueHandling.Ignore;
+        // Use camelCase for JSON property names (JavaScript convention)
+        options.SerializerSettings.ContractResolver = 
+            new Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver();
     });
 
 // DbContext
@@ -60,7 +63,8 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// Disable HTTPS redirection in development for easier testing
+// app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();

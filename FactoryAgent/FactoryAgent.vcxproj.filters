@@ -61,6 +61,7 @@
     <ClInclude Include="third_party\json\json.hpp">
       <Filter>lib</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />

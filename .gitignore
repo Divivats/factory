@@ -1,10 +1,6 @@
 bin/
 obj/
 .vs/
-*.user
-*.suo
+node_modules/
+.env
 *.log
-*.db
-*.mdf
-*.ldf
-appsettings.Development.json

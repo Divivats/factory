@@ -1,11 +1,6 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-/*
- * Types.h
- * Common data structures used throughout the agent
- */
-
 #include <string>
 #include <vector>
 
@@ -18,14 +13,21 @@ struct AgentSettings {
     std::string modelFolderPath;
     std::string modelVersion;
     std::wstring serverUrl;
+    std::wstring exeName;
 
     AgentSettings() {
         pcId = 0;
         lineNumber = 0;
         pcNumber = 0;
-        // Default model version if not chosen yet
         modelVersion = "3.5";
     }
+};
+
+struct AgentStatus {
+    bool isConnected;
+    int pcId;
+    int lineNumber;
+    int connectionFailures;
 };
 
 struct CommandResult {

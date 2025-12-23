@@ -42,11 +42,11 @@ bool LoadSettings(AgentSettings& settings) {
         settings.configFilePath = config["configFilePath"];
         settings.logFilePath = config["logFilePath"];
         settings.modelFolderPath = config["modelFolderPath"];
-        // Backward compatible: default to 3.5 if not present
-        settings.modelVersion = config.value("modelVersion", std::string("3.5"));
 
         std::string serverUrlStr = config["serverUrl"];
+        std::string exeNameStr = config["exeName"];
         settings.serverUrl = std::wstring(serverUrlStr.begin(), serverUrlStr.end());
+        settings.exeName = std::wstring(exeNameStr.begin(), exeNameStr.end());
 
         return true;
     }
@@ -63,10 +63,12 @@ void SaveSettings(const AgentSettings& settings) {
     config["configFilePath"] = settings.configFilePath;
     config["logFilePath"] = settings.logFilePath;
     config["modelFolderPath"] = settings.modelFolderPath;
-    config["modelVersion"] = settings.modelVersion;
 
     std::string serverUrlStr(settings.serverUrl.begin(), settings.serverUrl.end());
+    std::string exeNameStr(settings.exeName.begin(), settings.exeName.end());
     config["serverUrl"] = serverUrlStr;
+    config["exeName"] = exeNameStr;
+
 
     std::ofstream file(AgentConstants::CONFIG_FILE_NAME);
     file << config.dump(4);
@@ -95,8 +97,31 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             break;
 
         case ID_TRAY_STATUS:
-            MessageBox(hwnd, L"Agent is running", L"Status", MB_OK | MB_ICONINFORMATION);
+        {
+            if (!g_agentCore) {
+                MessageBox(hwnd, L"Agent not initialized", L"Status",
+                    MB_OK | MB_ICONWARNING);
+                break;
+            }
+
+            AgentStatus status = g_agentCore->GetStatus();
+
+            wchar_t buffer[512];
+            swprintf_s(buffer, 512,
+                L"Status: %s\n"
+                L"PC ID: %d\n"
+                L"Line Number: %d\n"
+                L"Connection Failures: %d",
+                status.isConnected ? L"Connected" : L"Disconnected",
+                status.pcId,
+                status.lineNumber,
+                status.connectionFailures
+            );
+
+            MessageBox(hwnd, buffer, L"Agent Status",
+                MB_OK | MB_ICONINFORMATION);
             break;
+        }
 
         case ID_TRAY_RECONNECT:
             MessageBox(hwnd, L"Reconnecting...", L"Factory Agent", MB_OK | MB_ICONINFORMATION);

@@ -8,20 +8,8 @@ ProcessMonitor::ProcessMonitor() {
 ProcessMonitor::~ProcessMonitor() {
 }
 
-std::wstring ProcessMonitor::GetProcessNameFromPath(const std::wstring& exePath) {
-    size_t pos = exePath.find_last_of(L"\\/");
-    if (pos != std::wstring::npos) {
-        return exePath.substr(pos + 1);
-    }
-    return exePath;
-}
-
-bool ProcessMonitor::IsProcessRunning(const std::wstring& exePath) {
-    std::wstring processName = GetProcessNameFromPath(exePath);
-    return IsProcessRunningByName(processName);
-}
-
-bool ProcessMonitor::IsProcessRunningByName(const std::wstring& processName) {
+bool ProcessMonitor::IsProcessRunning(const std::wstring& processName) {
+    if (processName.empty()) return false;
     HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (hSnapshot == INVALID_HANDLE_VALUE) {
         return false;

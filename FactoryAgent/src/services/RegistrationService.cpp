@@ -40,11 +40,13 @@ json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
     json request;
     request["lineNumber"] = settings->lineNumber;
     request["pcNumber"] = settings->pcNumber;
-    request["ipAddress"] = NetworkUtils::GetIPAddress();
+    request["ipAddress"] = NetworkUtils::GetIPAddress();  // Automatically fetched
     request["configFilePath"] = settings->configFilePath;
     request["logFilePath"] = settings->logFilePath;
     request["modelFolderPath"] = settings->modelFolderPath;
-    request["modelVersion"] = settings->modelVersion;
+    request["modelVersion"] = settings->modelVersion;  // Added version
+    std::string exeName = NetworkUtils::ConvertWStringToString(settings->exeName);
+    request["exeName"] = exeName;
     return request;
 }
 

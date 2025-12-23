@@ -85,7 +85,7 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> BulkUploadModel(IFormFile modelFile, string targetType, int? lineNumber, string? version)
+        public async Task<IActionResult> BulkUploadModel(IFormFile modelFile, string targetType, int? lineNumber, string? version, bool applyOnUpload = true)
         {
             try
             {
@@ -113,26 +113,39 @@ namespace FactoryMonitoringWeb.Controllers
                 await _context.SaveChangesAsync();
 
                 List<FactoryPC> targetPCs;
+                var query = _context.FactoryPCs.AsQueryable();
 
+                // Build query based on target type
                 if (targetType == "all")
                 {
-                    targetPCs = await _context.FactoryPCs.ToListAsync();
+                    targetPCs = await query.ToListAsync();
                 }
                 else if (targetType == "line" && lineNumber.HasValue)
                 {
-                    targetPCs = await _context.FactoryPCs
+                    targetPCs = await query
                         .Where(p => p.LineNumber == lineNumber.Value)
                         .ToListAsync();
                 }
                 else if (targetType == "version" && !string.IsNullOrWhiteSpace(version))
                 {
-                    targetPCs = await _context.FactoryPCs
+                    targetPCs = await query
                         .Where(p => p.ModelVersion == version)
+                        .ToListAsync();
+                }
+                else if (targetType == "lineandversion" && lineNumber.HasValue && !string.IsNullOrWhiteSpace(version))
+                {
+                    targetPCs = await query
+                        .Where(p => p.LineNumber == lineNumber.Value && p.ModelVersion == version)
                         .ToListAsync();
                 }
                 else
                 {
-                    return Json(new { success = false, message = "Invalid target type" });
+                    return Json(new { success = false, message = "Invalid target type or missing parameters" });
+                }
+
+                if (targetPCs.Count == 0)
+                {
+                    return Json(new { success = false, message = "No PCs found matching the criteria" });
                 }
 
                 // Create full download URL
@@ -150,8 +163,8 @@ namespace FactoryMonitoringWeb.Controllers
                             ModelFileId = newModelFile.ModelFileId,
                             ModelName = modelName,
                             FileName = modelFile.FileName,
-                            DownloadUrl = downloadUrl,  // ADDED
-                            ApplyOnUpload = true
+                            DownloadUrl = downloadUrl,
+                            ApplyOnUpload = applyOnUpload
                         }),
                         Status = "Pending",
                         CreatedDate = DateTime.Now
@@ -166,7 +179,8 @@ namespace FactoryMonitoringWeb.Controllers
                 {
                     success = true,
                     message = $"Model upload initiated for {targetPCs.Count} PC(s)",
-                    affectedPCs = targetPCs.Count
+                    affectedPCs = targetPCs.Count,
+                    targetType = targetType
                 });
             }
             catch (Exception ex)

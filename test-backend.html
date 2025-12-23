@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Backend Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-box {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 2px solid #444;
+        }
+        .success { border-color: #0f0; }
+        .error { border-color: #f00; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        pre {
+            background: #000;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        h1 { color: #4fc3f7; }
+        h3 { color: #81c784; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Factory Monitoring - Backend API Test</h1>
+    <p>This page will test if your backend API is working correctly.</p>
+    
+    <button onclick="testAll()">🚀 Test All Endpoints</button>
+    <button onclick="clearResults()">🗑️ Clear Results</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api/Api';
+        
+        async function testEndpoint(name, url) {
+            const resultDiv = document.getElementById('results');
+            const testBox = document.createElement('div');
+            testBox.className = 'test-box';
+            testBox.innerHTML = `<h3>Testing: ${name}</h3><p>⏳ Loading...</p>`;
+            resultDiv.appendChild(testBox);
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                testBox.className = 'test-box success';
+                testBox.innerHTML = `
+                    <h3>✅ ${name} - SUCCESS</h3>
+                    <p><strong>URL:</strong> ${url}</p>
+                    <p><strong>Status:</strong> ${response.status} ${response.statusText}</p>
+                    <p><strong>Response:</strong></p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                testBox.className = 'test-box error';
+                testBox.innerHTML = `
+                    <h3>❌ ${name} - FAILED</h3>
+                    <p><strong>URL:</strong> ${url}</p>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p><strong>Possible causes:</strong></p>
+                    <ul>
+                        <li>Backend server is not running on port 5000</li>
+                        <li>CORS is not enabled (but it should be)</li>
+                        <li>Firewall is blocking the connection</li>
+                    </ul>
+                `;
+            }
+        }
+        
+        async function testAll() {
+            clearResults();
+            
+            await testEndpoint('Get Versions', `${API_BASE}/versions`);
+            await testEndpoint('Get Lines', `${API_BASE}/lines`);
+            await testEndpoint('Get Stats', `${API_BASE}/stats`);
+            await testEndpoint('Get All PCs', `${API_BASE}/pcs`);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        // Auto-test on load
+        window.addEventListener('load', () => {
+            setTimeout(testAll, 500);
+        });
+    </script>
+</body>
+</html>
+

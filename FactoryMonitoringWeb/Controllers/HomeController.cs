@@ -24,6 +24,13 @@ namespace FactoryMonitoringWeb.Controllers
                 .OrderBy(v => v)
                 .ToListAsync();
 
+            // Load distinct line numbers for model management
+            var lineNumbers = await _context.FactoryPCs
+                .Select(p => p.LineNumber)
+                .Distinct()
+                .OrderBy(l => l)
+                .ToListAsync();
+
             // Base query for PCs
             var query = _context.FactoryPCs
                 .Include(p => p.Models)
@@ -44,7 +51,8 @@ namespace FactoryMonitoringWeb.Controllers
                 Versions = versions,
                 SelectedVersion = string.IsNullOrWhiteSpace(version) ? null : version,
                 ViewMode = string.IsNullOrWhiteSpace(viewMode) ? "cards" : viewMode.ToLowerInvariant(),
-                PCs = pcs
+                PCs = pcs,
+                LineNumbers = lineNumbers
             };
 
             return View(model);

@@ -1,0 +1,491 @@
+import { useEffect, useState } from 'react'
+import { useParams, Link } from 'react-router-dom'
+import { ArrowLeft, Server, Wifi, Play, Download, Settings, Upload, Trash2, RefreshCw, Check } from 'lucide-react'
+import { factoryApi } from '../services/api'
+import type { PCDetails } from '../types'
+
+export default function PCDetailsPage() {
+  const { id } = useParams()
+  const [pc, setPC] = useState<PCDetails | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  
+  // Model management
+  const [selectedModel, setSelectedModel] = useState<string>('')
+  const [showUploadModel, setShowUploadModel] = useState(false)
+  const [modelFile, setModelFile] = useState<File | null>(null)
+  
+  // Config management
+  const [showUploadConfig, setShowUploadConfig] = useState(false)
+  const [configFile, setConfigFile] = useState<File | null>(null)
+
+  useEffect(() => {
+    if (id) {
+      loadPC(parseInt(id))
+    }
+  }, [id])
+
+  const loadPC = async (pcId: number) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await factoryApi.getPC(pcId)
+      setPC(data)
+      // Set default selected model to current model
+      const currentModel = data.availableModels.find(m => m.isCurrentModel)
+      if (currentModel) {
+        setSelectedModel(currentModel.modelName)
+      } else if (data.availableModels.length > 0) {
+        setSelectedModel(data.availableModels[0].modelName)
+      }
+    } catch (err) {
+      console.error('Failed to load PC:', err)
+      setError('Failed to load PC details')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Model Actions
+  const handleApplyModel = async () => {
+    if (!pc || !selectedModel) {
+      alert('Please select a model')
+      return
+    }
+    if (!confirm(`Apply model "${selectedModel}"?`)) return
+    
+    try {
+      const result = await factoryApi.changeModel(pc.pcId, selectedModel)
+      alert(result.message || 'Model change initiated!')
+      setTimeout(() => loadPC(pc.pcId), 1000)
+    } catch (err: any) {
+      alert(err.message || 'Failed to change model')
+    }
+  }
+
+  const handleUploadModel = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!pc || !modelFile) return
+    
+    try {
+      const result = await factoryApi.uploadModelToPC(pc.pcId, modelFile)
+      alert(result.message || 'Model upload initiated!')
+      setShowUploadModel(false)
+      setModelFile(null)
+      setTimeout(() => loadPC(pc.pcId), 2000)
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload model')
+    }
+  }
+
+  const handleDownloadModel = async () => {
+    if (!pc || !selectedModel) {
+      alert('Please select a model')
+      return
+    }
+    if (!confirm(`Download model "${selectedModel}" from PC to server?`)) return
+    
+    try {
+      const result = await factoryApi.downloadModelFromPC(pc.pcId, selectedModel)
+      alert(result.message || 'Download initiated! Agent will ZIP and send the model.')
+    } catch (err: any) {
+      alert(err.message || 'Failed to download model')
+    }
+  }
+
+  const handleDeleteModel = async () => {
+    if (!pc || !selectedModel) {
+      alert('Please select a model')
+      return
+    }
+    const currentModel = pc.availableModels.find(m => m.isCurrentModel)
+    if (currentModel && currentModel.modelName === selectedModel) {
+      alert('Cannot delete the currently active model!')
+      return
+    }
+    if (!confirm(`⚠️ DELETE model "${selectedModel}"?\\n\\nThis cannot be undone!`)) return
+    
+    try {
+      const result = await factoryApi.deleteModelFromPC(pc.pcId, selectedModel)
+      alert(result.message || 'Model deletion initiated!')
+      setTimeout(() => loadPC(pc.pcId), 1000)
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete model')
+    }
+  }
+
+  const handleRefreshModels = () => {
+    if (pc) {
+      loadPC(pc.pcId)
+      alert('Models list refreshed!')
+    }
+  }
+
+  // Config Actions
+  const handleDownloadConfig = async () => {
+    if (!pc) return
+    try {
+      const blob = await factoryApi.downloadConfig(pc.pcId)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `config_Line${pc.lineNumber}_PC${pc.pcNumber}.ini`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+      alert('Config downloaded successfully!')
+    } catch (err: any) {
+      alert(err.message || 'Failed to download config')
+    }
+  }
+
+  const handleUploadConfig = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!pc || !configFile) return
+    
+    try {
+      const result = await factoryApi.uploadConfig(pc.pcId, configFile)
+      alert(result.message || 'Config upload initiated!')
+      setShowUploadConfig(false)
+      setConfigFile(null)
+      setTimeout(() => loadPC(pc.pcId), 1000)
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload config')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="main-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
+        <div style={{ textAlign: 'center', color: 'var(--neutral-400)' }}>
+          <div style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Loading PC Details...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !pc) {
+    return (
+      <div className="main-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--danger-500)' }}>
+            {error || 'PC not found'}
+          </div>
+          <Link to="/dashboard" className="btn btn-primary">
+            <ArrowLeft size={16} />
+            Back to Dashboard
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const currentModel = pc.availableModels.find(m => m.isCurrentModel)
+
+  return (
+    <>
+      {/* Header */}
+      <div className="main-header">
+        <div className="header-title-section">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+            <Link to="/dashboard" className="btn btn-ghost btn-icon">
+              <ArrowLeft size={20} />
+            </Link>
+            <div>
+              <h1 className="header-title">
+                Line {pc.lineNumber} - PC {pc.pcNumber}
+              </h1>
+              <p className="header-subtitle">{pc.ipAddress} • Version {pc.modelVersion}</p>
+            </div>
+          </div>
+        </div>
+        <div className="header-actions">
+          <span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'}`}>
+            <Wifi size={14} />
+            {pc.isOnline ? 'Online' : 'Offline'}
+          </span>
+          <span className={`badge ${pc.isApplicationRunning ? 'badge-success' : 'badge-neutral'}`}>
+            <Play size={14} />
+            {pc.isApplicationRunning ? 'Running' : 'Stopped'}
+          </span>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="main-content">
+        {/* PC Information Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 'var(--spacing-xl)', marginBottom: 'var(--spacing-xl)' }}>
+          {/* PC Info */}
+          <div className="info-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
+              <div className="icon-box" style={{ background: 'linear-gradient(135deg, var(--primary-700), var(--primary-500))' }}>
+                <Server size={28} color="white" />
+              </div>
+              <h2>PC Information</h2>
+            </div>
+            <table className="info-table">
+              <tbody>
+                <tr>
+                  <td>IP Address</td>
+                  <td><strong>{pc.ipAddress}</strong></td>
+                </tr>
+                <tr>
+                  <td>Model Version</td>
+                  <td><strong>{pc.modelVersion}</strong></td>
+                </tr>
+                <tr>
+                  <td>Registered</td>
+                  <td>{new Date(pc.registeredDate).toLocaleString()}</td>
+                </tr>
+                <tr>
+                  <td>Last Updated</td>
+                  <td>{new Date(pc.lastUpdated).toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* File Paths */}
+          <div className="info-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
+              <div className="icon-box" style={{ background: 'linear-gradient(135deg, var(--success-600), var(--success-500))' }}>
+                <Settings size={28} color="white" />
+              </div>
+              <h2>File Paths</h2>
+            </div>
+            <div style={{ marginBottom: 'var(--spacing-md)' }}>
+              <div className="label">CONFIG FILE</div>
+              <div className="path-text">{pc.configFilePath}</div>
+            </div>
+            <div style={{ marginBottom: 'var(--spacing-md)' }}>
+              <div className="label">LOG PATH</div>
+              <div className="path-text">{pc.logFilePath}</div>
+            </div>
+            <div>
+              <div className="label">MODEL FOLDER</div>
+              <div className="path-text">{pc.modelFolderPath}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Models Management Section */}
+        <div className="section-card">
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 'var(--spacing-xl)' }}>
+            Models Management
+          </h2>
+
+          {/* Model Selector with Current Badge */}
+          <div style={{ marginBottom: 'var(--spacing-xl)' }}>
+            <label htmlFor="modelSelect" style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
+              Available Models:
+            </label>
+            <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
+              <select
+                id="modelSelect"
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="form-select"
+                style={{ flex: 1 }}
+              >
+                {pc.availableModels.length === 0 && <option value="">No models synced yet</option>}
+                {pc.availableModels.map(model => (
+                  <option key={model.modelId} value={model.modelName}>
+                    {model.modelName} {model.isCurrentModel ? '(Current)' : ''}
+                  </option>
+                ))}
+              </select>
+              {currentModel && selectedModel === currentModel.modelName && (
+                <span className="badge badge-success" style={{ whiteSpace: 'nowrap' }}>
+                  <Check size={14} />
+                  Active
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
+            <button
+              onClick={handleApplyModel}
+              className="btn btn-primary"
+              disabled={!selectedModel || (currentModel && selectedModel === currentModel.modelName)}
+              style={{ width: '100%' }}
+            >
+              <Check size={16} />
+              Apply Model
+            </button>
+            <button
+              onClick={() => setShowUploadModel(true)}
+              className="btn btn-success"
+              style={{ width: '100%' }}
+            >
+              <Upload size={16} />
+              Upload New Model
+            </button>
+            <button
+              onClick={handleDownloadModel}
+              className="btn btn-secondary"
+              disabled={!selectedModel}
+              style={{ width: '100%' }}
+            >
+              <Download size={16} />
+              Download Model
+            </button>
+            <button
+              onClick={handleDeleteModel}
+              className="btn btn-danger"
+              disabled={!selectedModel || (currentModel && selectedModel === currentModel.modelName)}
+              style={{ width: '100%' }}
+            >
+              <Trash2 size={16} />
+              Delete Model
+            </button>
+            <button
+              onClick={handleRefreshModels}
+              className="btn btn-secondary"
+              style={{ width: '100%' }}
+            >
+              <RefreshCw size={16} />
+              Refresh List
+            </button>
+          </div>
+
+          {/* Current Model Info */}
+          {currentModel && (
+            <div style={{
+              padding: 'var(--spacing-lg)',
+              background: 'var(--primary-900)',
+              border: '2px solid var(--primary-600)',
+              borderRadius: 'var(--radius-lg)',
+              marginTop: 'var(--spacing-lg)'
+            }}>
+              <div style={{ fontSize: '0.875rem', color: 'var(--neutral-400)', marginBottom: 'var(--spacing-xs)' }}>
+                CURRENT ACTIVE MODEL
+              </div>
+              <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--primary-300)', fontFamily: 'monospace' }}>
+                {currentModel.modelName}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Configuration Section */}
+        <div className="section-card">
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 'var(--spacing-xl)' }}>
+            Configuration File
+          </h2>
+
+          {pc.config ? (
+            <>
+              <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+                <p><strong>Last Modified:</strong> {new Date(pc.config.lastModified).toLocaleString()}</p>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
+                <button
+                  onClick={handleDownloadConfig}
+                  className="btn btn-primary"
+                  style={{ width: '100%' }}
+                >
+                  <Download size={16} />
+                  Download Config File
+                </button>
+                <button
+                  onClick={() => setShowUploadConfig(true)}
+                  className="btn btn-success"
+                  style={{ width: '100%' }}
+                >
+                  <Upload size={16} />
+                  Upload Config File
+                </button>
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--neutral-500)' }}>
+              <p>Config file not yet uploaded from agent.</p>
+              <button onClick={() => loadPC(pc.pcId)} className="btn btn-secondary" style={{ marginTop: 'var(--spacing-md)' }}>
+                <RefreshCw size={16} />
+                Refresh Page
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Upload Model Modal */}
+      {showUploadModel && (
+        <div className="modal-overlay" onClick={() => setShowUploadModel(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Upload New Model</h2>
+            <p style={{ color: 'var(--neutral-400)', marginBottom: 'var(--spacing-lg)' }}>
+              Upload a ZIP file containing the model folder.
+            </p>
+            <form onSubmit={handleUploadModel}>
+              <div style={{ marginBottom: 'var(--spacing-xl)' }}>
+                <input
+                  type="file"
+                  accept=".zip"
+                  onChange={(e) => setModelFile(e.target.files?.[0] || null)}
+                  required
+                  className="file-input"
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                  <Upload size={16} />
+                  Upload
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowUploadModel(false); setModelFile(null); }}
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Config Modal */}
+      {showUploadConfig && (
+        <div className="modal-overlay" onClick={() => setShowUploadConfig(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Upload Config File</h2>
+            <p style={{ color: 'var(--neutral-400)', marginBottom: 'var(--spacing-lg)' }}>
+              Upload a config.ini file to replace the current configuration.
+            </p>
+            <form onSubmit={handleUploadConfig}>
+              <div style={{ marginBottom: 'var(--spacing-xl)' }}>
+                <input
+                  type="file"
+                  accept=".ini,.txt"
+                  onChange={(e) => setConfigFile(e.target.files?.[0] || null)}
+                  required
+                  className="file-input"
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+                <button type="submit" className="btn btn-success" style={{ flex: 1 }}>
+                  <Upload size={16} />
+                  Upload
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowUploadConfig(false); setConfigFile(null); }}
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}

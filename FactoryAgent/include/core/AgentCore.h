@@ -29,6 +29,7 @@ public:
     void Start();
     void Stop();
     bool IsRunning() const;
+	AgentStatus GetStatus() const;
 
 private:
     AgentSettings settings_;
@@ -52,7 +53,6 @@ private:
     void WorkerLoop();
 
     AgentCore(const AgentCore&);
-    AgentCore& operator=(const AgentCore&);
 };
 
 #endif

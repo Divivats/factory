@@ -14,11 +14,7 @@ public:
     ProcessMonitor();
     ~ProcessMonitor();
 
-    bool IsProcessRunning(const std::wstring& exePath);
-    bool IsProcessRunningByName(const std::wstring& processName);
-
-private:
-    std::wstring GetProcessNameFromPath(const std::wstring& exePath);
+    bool IsProcessRunning(const std::wstring& processName);
 };
 
 #endif

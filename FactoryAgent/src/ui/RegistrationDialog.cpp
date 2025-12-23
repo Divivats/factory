@@ -10,6 +10,7 @@ bool RegistrationDialog::ShowDialog(HINSTANCE hInstance, AgentSettings& settings
     settings.pcNumber = 1;
     settings.modelVersion = "3.5";
     settings.serverUrl = L"http://localhost:5000";
+    settings.exeName = L"msedge.exe";
 
     INT_PTR result = DialogBoxParam(hInstance, MAKEINTRESOURCE(IDD_REGISTRATION),
         NULL, DialogProc, (LPARAM)&settings);
@@ -26,6 +27,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
         SetDlgItemTextA(hDlg, IDC_LOG_PATH, "C:\\LAI\\LAI-WorkData\\Log");
         SetDlgItemTextA(hDlg, IDC_MODEL_PATH, "C:\\LAI\\LAI-Operational\\Model");
         SetDlgItemTextW(hDlg, IDC_SERVER_URL, L"http://localhost:5000");
+        SetDlgItemTextW(hDlg, IDC_EXE_NAME, L"msedge.exe");
 
         // Populate model version dropdown
         HWND hVersionCombo = GetDlgItem(hDlg, IDC_MODEL_VERSION);
@@ -49,6 +51,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                 char modelPath[AgentConstants::MAX_PATH_LENGTH];
                 char modelVersion[32];
                 wchar_t serverUrl[AgentConstants::MAX_PATH_LENGTH];
+                wchar_t exeName[AgentConstants::MAX_PATH_LENGTH];
 
                 GetDlgItemTextA(hDlg, IDC_CONFIG_PATH, configPath, AgentConstants::MAX_PATH_LENGTH);
                 GetDlgItemTextA(hDlg, IDC_LOG_PATH, logPath, AgentConstants::MAX_PATH_LENGTH);
@@ -65,6 +68,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                 }
 
                 GetDlgItemTextW(hDlg, IDC_SERVER_URL, serverUrl, AgentConstants::MAX_PATH_LENGTH);
+                GetDlgItemTextW(hDlg, IDC_EXE_NAME, exeName, AgentConstants::MAX_PATH_LENGTH);
 
                 settings_->configFilePath = configPath;
                 settings_->logFilePath = logPath;
@@ -73,6 +77,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                     settings_->modelVersion = modelVersion;
                 }
                 settings_->serverUrl = serverUrl;
+                settings_->exeName = exeName;
             }
 
             EndDialog(hDlg, IDOK);

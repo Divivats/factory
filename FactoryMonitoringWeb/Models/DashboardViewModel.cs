@@ -8,6 +8,7 @@ namespace FactoryMonitoringWeb.Models
         public string? SelectedVersion { get; set; }
         public string ViewMode { get; set; } = "cards"; // "cards" or "list"
         public List<FactoryPC> PCs { get; set; } = new List<FactoryPC>();
+        public List<int> LineNumbers { get; set; } = new List<int>();
     }
 }
 

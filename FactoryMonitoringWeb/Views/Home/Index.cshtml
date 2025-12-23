@@ -29,29 +29,47 @@
         <div class="sidebar-section">
             <h2>Model Management</h2>
             <p class="sidebar-help">
-                Upload a model ZIP and apply it to multiple PCs at once.
+                Upload a model ZIP and apply it to selected PCs. One model is uploaded to server and all selected agents download and apply it.
             </p>
             <form id="sidebarBulkUploadForm" enctype="multipart/form-data">
                 <div class="form-group">
-                    <label for="sidebarModelFile">Model ZIP:</label>
+                    <label for="sidebarModelFile">Model ZIP File:</label>
                     <input type="file" id="sidebarModelFile" name="modelFile" accept=".zip" required />
                 </div>
                 <div class="form-group">
                     <label>Apply To:</label>
                     <select id="sidebarTargetType" name="targetType" class="form-control">
                         <option value="all">All PCs</option>
-                        @if (Model.SelectedVersion != null)
+                        <option value="version">By Version</option>
+                        <option value="line">By Line</option>
+                        <option value="lineandversion">By Line + Version</option>
+                    </select>
+                </div>
+                <div class="form-group" id="versionSelectGroup" style="display:none;">
+                    <label for="sidebarVersionSelect">Select Version:</label>
+                    <select id="sidebarVersionSelect" name="version" class="form-control">
+                        @foreach (var v in Model.Versions)
                         {
-                            <option value="version">Selected Version (@Model.SelectedVersion)</option>
+                            <option value="@v" selected="@(Model.SelectedVersion == v)">@v</option>
                         }
                     </select>
-                    @if (Model.SelectedVersion != null)
-                    {
-                        <input type="hidden" id="sidebarVersion" name="version"
-                               value="@Model.SelectedVersion" />
-                    }
                 </div>
-                <button type="submit" class="btn btn-primary btn-block">Upload & Apply</button>
+                <div class="form-group" id="lineSelectGroup" style="display:none;">
+                    <label for="sidebarLineSelect">Select Line:</label>
+                    <select id="sidebarLineSelect" name="lineNumber" class="form-control">
+                        @foreach (var line in Model.LineNumbers)
+                        {
+                            <option value="@line">Line @line</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="sidebarApplyOnUpload" name="applyOnUpload" checked />
+                        Apply model immediately after download
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Upload & Apply to Selected PCs</button>
                 <div id="sidebarBulkUploadStatus" class="upload-status" style="margin-top:10px;"></div>
             </form>
         </div>
@@ -89,10 +107,9 @@
                 <table class="pc-table">
                     <thead>
                         <tr>
+                            <th>Name</th>
                             <th>Version</th>
-                            <th>Line</th>
-                            <th>PC</th>
-                            <th>IP</th>
+                            <th>IP Address</th>
                             <th>Status</th>
                             <th>App</th>
                             <th>Current Model</th>
@@ -105,9 +122,8 @@
                         {
                             var currentModel = pc.Models.FirstOrDefault(m => m.IsCurrentModel);
                             <tr class="@(pc.IsOnline ? "online" : "offline")">
+                                <td><strong>Line @pc.LineNumber - PC @pc.PCNumber</strong></td>
                                 <td>@pc.ModelVersion</td>
-                                <td>@pc.LineNumber</td>
-                                <td>PC @pc.PCNumber</td>
                                 <td>@pc.IPAddress</td>
                                 <td>
                                     <span class="badge @(pc.IsOnline ? "badge-success" : "badge-danger")">
@@ -119,7 +135,7 @@
                                         @(pc.IsApplicationRunning ? "Running" : "Stopped")
                                     </span>
                                 </td>
-                                <td>@(currentModel?.ModelName ?? "None")</td>
+                                <td><strong>@(currentModel?.ModelName ?? "None")</strong></td>
                                 <td>@pc.LastUpdated.ToString("yyyy-MM-dd HH:mm:ss")</td>
                                 <td>
                                     <a href="@Url.Action("Details", "PC", new { id = pc.PCId })"
@@ -147,16 +163,16 @@
                             </svg>
                         </div>
                         <div class="pc-info">
-                            <h3>PC @pc.PCNumber <span class="pc-line">Line @pc.LineNumber</span></h3>
-                            <p class="ip-address">@pc.IPAddress</p>
-                            <p class="pc-version">Version @pc.ModelVersion</p>
+                            <h3>Line @pc.LineNumber - PC @pc.PCNumber</h3>
+                            <p class="ip-address"><strong>IP:</strong> @pc.IPAddress</p>
+                            <p class="pc-version"><strong>Version:</strong> @pc.ModelVersion</p>
                             @if (currentModel != null)
                             {
-                                <p class="pc-model">Model: <strong>@currentModel.ModelName</strong></p>
+                                <p class="pc-model"><strong>Current Model:</strong> <span style="color: #2563eb; font-weight: 600;">@currentModel.ModelName</span></p>
                             }
                             else
                             {
-                                <p class="pc-model">Model: <span class="muted">Not synced</span></p>
+                                <p class="pc-model"><strong>Current Model:</strong> <span class="muted">Not synced</span></p>
                             }
 
                             @if (pc.IsOnline)
@@ -186,6 +202,19 @@
 
 @section Scripts {
     <script>
+        // Handle target type change to show/hide relevant fields
+        document.getElementById('sidebarTargetType').addEventListener('change', function() {
+            const targetType = this.value;
+            const versionGroup = document.getElementById('versionSelectGroup');
+            const lineGroup = document.getElementById('lineSelectGroup');
+            
+            versionGroup.style.display = (targetType === 'version' || targetType === 'lineandversion') ? 'block' : 'none';
+            lineGroup.style.display = (targetType === 'line' || targetType === 'lineandversion') ? 'block' : 'none';
+        });
+
+        // Initialize on page load
+        document.getElementById('sidebarTargetType').dispatchEvent(new Event('change'));
+
         // Sidebar bulk upload uses existing ModelController.BulkUploadModel endpoint
         document.getElementById('sidebarBulkUploadForm').addEventListener('submit', async function (e) {
             e.preventDefault();
@@ -194,6 +223,7 @@
             const fileInput = document.getElementById('sidebarModelFile');
             const targetTypeSelect = document.getElementById('sidebarTargetType');
             const statusDiv = document.getElementById('sidebarBulkUploadStatus');
+            const applyOnUpload = document.getElementById('sidebarApplyOnUpload').checked;
 
             if (!fileInput.files[0]) {
                 statusDiv.innerHTML = 'Please select a file';
@@ -203,15 +233,25 @@
 
             formData.append('modelFile', fileInput.files[0]);
             formData.append('targetType', targetTypeSelect.value);
+            formData.append('applyOnUpload', applyOnUpload);
 
-            if (targetTypeSelect.value === 'version') {
-                const version = document.getElementById('sidebarVersion')?.value;
+            const targetType = targetTypeSelect.value;
+            
+            if (targetType === 'version' || targetType === 'lineandversion') {
+                const version = document.getElementById('sidebarVersionSelect').value;
                 if (version) {
                     formData.append('version', version);
                 }
             }
+            
+            if (targetType === 'line' || targetType === 'lineandversion') {
+                const lineNumber = document.getElementById('sidebarLineSelect').value;
+                if (lineNumber) {
+                    formData.append('lineNumber', lineNumber);
+                }
+            }
 
-            statusDiv.innerHTML = 'Uploading...';
+            statusDiv.innerHTML = 'Uploading model to server...';
             statusDiv.className = 'upload-status info';
 
             try {
@@ -222,15 +262,15 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    statusDiv.innerHTML = result.message;
+                    statusDiv.innerHTML = '✓ ' + result.message + '<br>Affected PCs: ' + result.affectedPCs;
                     statusDiv.className = 'upload-status success';
-                    setTimeout(() => location.reload(), 2000);
+                    setTimeout(() => location.reload(), 3000);
                 } else {
-                    statusDiv.innerHTML = 'Error: ' + result.message;
+                    statusDiv.innerHTML = '✗ Error: ' + result.message;
                     statusDiv.className = 'upload-status error';
                 }
             } catch (error) {
-                statusDiv.innerHTML = 'Error: ' + error.message;
+                statusDiv.innerHTML = '✗ Error: ' + error.message;
                 statusDiv.className = 'upload-status error';
             }
         });
