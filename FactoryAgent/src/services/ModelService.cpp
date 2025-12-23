@@ -115,13 +115,28 @@ bool ModelService::UploadModelToServer(const json& data) {
             FileUtils::DeleteFolder(extractPath);
         }
 
+        // Create the folder where we will extract the zip
+        FileUtils::CreateFolder(extractPath);
+
         if (ZipUtils::ExtractZip(tempZipPath, extractPath)) {
             FileUtils::DeleteFile(tempZipPath);
 
+            // REMOVED FLATTENING LOGIC AS REQUESTED
+            // The zip content is extracted exactly as is.
+
             std::string configContent;
             if (configManager_->ParseConfigFile(settings_->configFilePath, configContent)) {
-                if (configManager_->UpdateCurrentModel(configContent, modelName, extractPath)) {
-                    configManager_->WriteConfigFile(settings_->configFilePath, configContent);
+
+                // Check if ApplyOnUpload is true
+                bool applyOnUpload = false;
+                if (data.contains("ApplyOnUpload")) {
+                    applyOnUpload = data["ApplyOnUpload"].get<bool>();
+                }
+
+                if (applyOnUpload) {
+                    if (configManager_->UpdateCurrentModel(configContent, modelName, extractPath)) {
+                        configManager_->WriteConfigFile(settings_->configFilePath, configContent);
+                    }
                 }
             }
 
@@ -151,10 +166,6 @@ bool ModelService::DownloadModelFromAgent(const std::string& modelName) {
 
     std::string tempZipPath = tempDir + "\\" + modelName + AgentConstants::ZIP_EXTENSION;
 
-    if (FileUtils::FileExists(tempZipPath)) {
-        FileUtils::DeleteFile(tempZipPath);
-    }
-
     if (ZipUtils::CreateZip(modelPath, tempZipPath)) {
         if (FileUtils::FileExists(tempZipPath)) {
             json response;
@@ -163,7 +174,9 @@ bool ModelService::DownloadModelFromAgent(const std::string& modelName) {
 
             FileUtils::DeleteFile(tempZipPath);
 
-            return success;
+            if (success && response.contains("success") && response["success"].get<bool>()) {
+                return true;
+            }
         }
     }
 

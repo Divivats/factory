@@ -6,7 +6,11 @@
 #include "../include/ui/RegistrationDialog.h"
 #include "../include/common/Constants.h"
 #include "../include/common/Types.h"
+#include "../include/utilities/NetworkUtils.h"
 #include "../third_party/json/json.hpp"
+
+// Link with Ws2_32.lib for networking
+#pragma comment(lib, "Ws2_32.lib")
 
 using json = nlohmann::json;
 
@@ -26,6 +30,17 @@ bool LoadSettings(AgentSettings& settings);
 void SaveSettings(const AgentSettings& settings);
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
+// Helper to detect IP safely
+std::string DetectIPAddress() {
+    std::string ip = "127.0.0.1";
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) == 0) {
+        ip = NetworkUtils::GetIPAddress();
+        WSACleanup();
+    }
+    return ip;
+}
+
 bool LoadSettings(AgentSettings& settings) {
     std::ifstream file(AgentConstants::CONFIG_FILE_NAME);
     if (!file.is_open()) {
@@ -42,6 +57,14 @@ bool LoadSettings(AgentSettings& settings) {
         settings.configFilePath = config["configFilePath"];
         settings.logFilePath = config["logFilePath"];
         settings.modelFolderPath = config["modelFolderPath"];
+
+        if (config.contains("ipAddress")) {
+            settings.ipAddress = config["ipAddress"];
+        }
+
+        if (config.contains("modelVersion")) {
+            settings.modelVersion = config["modelVersion"];
+        }
 
         std::string serverUrlStr = config["serverUrl"];
         std::string exeNameStr = config["exeName"];
@@ -64,11 +87,18 @@ void SaveSettings(const AgentSettings& settings) {
     config["logFilePath"] = settings.logFilePath;
     config["modelFolderPath"] = settings.modelFolderPath;
 
+    if (!settings.ipAddress.empty()) {
+        config["ipAddress"] = settings.ipAddress;
+    }
+
+    if (!settings.modelVersion.empty()) {
+        config["modelVersion"] = settings.modelVersion;
+    }
+
     std::string serverUrlStr(settings.serverUrl.begin(), settings.serverUrl.end());
     std::string exeNameStr(settings.exeName.begin(), settings.exeName.end());
     config["serverUrl"] = serverUrlStr;
     config["exeName"] = exeNameStr;
-
 
     std::ofstream file(AgentConstants::CONFIG_FILE_NAME);
     file << config.dump(4);
@@ -168,12 +198,28 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     AppendMenu(g_popupMenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_EXIT, L"Exit");
 
+    // 1. Initialize settings structure
     AgentSettings settings;
+
+    // 2. Pre-detect IP Address BEFORE doing anything else
+    settings.ipAddress = DetectIPAddress();
+
+    // 3. Try to load existing settings
     if (!LoadSettings(settings)) {
+
+        // 4. First Run: Show Dialog
+        // The 'settings' object already has the detected IP from step 2.
         if (!RegistrationDialog::ShowDialog(hInstance, settings)) {
             DestroyWindow(g_hwnd);
             return 0;
         }
+
+        // 5. Save settings (including IP)
+        SaveSettings(settings);
+    }
+    else {
+        // Update IP on every run in case it changed
+        settings.ipAddress = DetectIPAddress();
         SaveSettings(settings);
     }
 

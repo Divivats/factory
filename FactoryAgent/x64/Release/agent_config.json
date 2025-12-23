@@ -1,10 +1,12 @@
 {
     "configFilePath": "C:\\LAI\\LAI-Operational\\config.ini",
-    "exeName": "chrome.exe",
+    "exeName": "msedge.exe",
+    "ipAddress": "192.168.168.223",
     "lineNumber": 1,
     "logFilePath": "C:\\LAI\\LAI-WorkData\\Log",
     "modelFolderPath": "C:\\LAI\\LAI-Operational\\Model",
+    "modelVersion": "3.5",
     "pcId": 0,
-    "pcNumber": 69,
+    "pcNumber": 39,
     "serverUrl": "http://localhost:5000"
 }

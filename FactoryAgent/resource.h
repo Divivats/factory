@@ -8,6 +8,7 @@
 #define IDC_CONFIG_PATH                 1003
 #define IDC_LOG_PATH                    1004
 #define IDC_MODEL_PATH                  1005
+#define IDC_MODEL_VERSION               1006
 #define IDC_SERVER_URL                  1007
 #define IDC_EXE_NAME                    1008
 #define IDC_STATIC                      -1

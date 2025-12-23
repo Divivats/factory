@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+﻿import { Link } from 'react-router-dom'
 import { Server, Wifi, WifiOff, Play, Square } from 'lucide-react'
 import type { FactoryPC } from '../types'
 

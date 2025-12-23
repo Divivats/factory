@@ -17,7 +17,7 @@ builder.Services.AddControllersWithViews()
         options.SerializerSettings.NullValueHandling =
             Newtonsoft.Json.NullValueHandling.Ignore;
         // Use camelCase for JSON property names (JavaScript convention)
-        options.SerializerSettings.ContractResolver = 
+        options.SerializerSettings.ContractResolver =
             new Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver();
     });
 
@@ -45,10 +45,10 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
-// ISSUE 5 FIX: Add HttpContextAccessor for getting base URL
+// Add HttpContextAccessor for getting base URL
 builder.Services.AddHttpContextAccessor();
 
-// ISSUE 5 FIX: Add Heartbeat Monitor Background Service
+// Add Heartbeat Monitor Background Service
 builder.Services.AddHostedService<HeartbeatMonitorService>();
 
 var app = builder.Build();
@@ -63,8 +63,6 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-// Disable HTTPS redirection in development for easier testing
-// app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
@@ -74,12 +72,19 @@ app.UseCors("AllowAll");
 app.UseAuthorization();
 app.UseSession();
 
-// MVC routes (Razor Pages / Views)
+// --- ROUTING FIX START ---
+// This handles requests like "/api/PC/ChangeModel" by routing them to "PCController" -> "ChangeModel"
+app.MapControllerRoute(
+    name: "api_default",
+    pattern: "api/{controller}/{action}/{id?}");
+// --- ROUTING FIX END ---
+
+// Standard MVC route
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-// API Controllers
+// API Controllers (Attribute routing)
 app.MapControllers();
 
 app.Run();

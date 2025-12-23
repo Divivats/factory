@@ -12,6 +12,7 @@ struct AgentSettings {
     std::string logFilePath;
     std::string modelFolderPath;
     std::string modelVersion;
+    std::string ipAddress;       // <--- THIS WAS MISSING
     std::wstring serverUrl;
     std::wstring exeName;
 
@@ -20,6 +21,7 @@ struct AgentSettings {
         lineNumber = 0;
         pcNumber = 0;
         modelVersion = "3.5";
+        ipAddress = "";          // Initialize it
     }
 };
 
