@@ -1,108 +1,179 @@
 import { useEffect, useState } from 'react'
-import { Link, useLocation, useParams } from 'react-router-dom'
-import { Server, Package, Activity } from 'lucide-react'
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
+import { Server, Package, LayoutGrid, Box, ChevronRight, ChevronDown, Activity, Circle } from 'lucide-react'
 import { factoryApi } from '../services/api'
+import type { FactoryPC } from '../types'
 
 export default function Sidebar() {
-  const location = useLocation()
-  const { version: activeVersion } = useParams()
-  const [versions, setVersions] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
+    const location = useLocation()
+    const { version: activeVersion } = useParams()
+    const [searchParams] = useSearchParams()
+    const activeLine = searchParams.get('line')
 
-  useEffect(() => {
-    loadVersions()
-  }, [])
+    // State
+    const [versionMap, setVersionMap] = useState<Record<string, number[]>>({})
+    const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>({})
+    const [loading, setLoading] = useState(true)
 
-  const loadVersions = async () => {
-    try {
-      const data = await factoryApi.getVersions()
-      setVersions(data)
-    } catch (error) {
-      console.error('Failed to load versions:', error)
-    } finally {
-      setLoading(false)
+    useEffect(() => {
+        loadTree()
+    }, [])
+
+    // Auto-expand the active version if we are on a version page
+    useEffect(() => {
+        if (activeVersion && !expandedVersions[activeVersion]) {
+            setExpandedVersions(prev => ({ ...prev, [activeVersion]: true }))
+        }
+    }, [activeVersion])
+
+    const loadTree = async () => {
+        try {
+            // We fetch all PCs to build the Version -> Lines map dynamically
+            // This ensures we only show lines that actually exist for a version
+            const data = await factoryApi.getPCs()
+
+            const tree: Record<string, Set<number>> = {}
+
+            // Iterate all lines and their PCs to build the map
+            data.lines.forEach(line => {
+                line.pcs.forEach(pc => {
+                    if (!tree[pc.modelVersion]) {
+                        tree[pc.modelVersion] = new Set()
+                    }
+                    tree[pc.modelVersion].add(line.lineNumber)
+                })
+            })
+
+            // Convert Sets to Arrays and sort
+            const finalMap: Record<string, number[]> = {}
+            Object.keys(tree).sort().forEach(v => {
+                finalMap[v] = Array.from(tree[v]).sort((a, b) => a - b)
+            })
+
+            setVersionMap(finalMap)
+        } catch (err) {
+            console.error(err)
+        } finally {
+            setLoading(false)
+        }
     }
-  }
 
-  const isActive = (path: string) => {
-    return location.pathname === path || location.pathname.startsWith(path)
-  }
+    const toggleVersion = (v: string, e: React.MouseEvent) => {
+        e.preventDefault()
+        setExpandedVersions(prev => ({ ...prev, [v]: !prev[v] }))
+    }
 
-  return (
-    <aside className="factory-sidebar">
-      <div className="sidebar-header">
-        <Link to="/dashboard" className="sidebar-logo">
-          <div className="sidebar-logo-icon">
-            <Server size={20} strokeWidth={2.5} />
-          </div>
-          <span>Factory Monitor</span>
-        </Link>
-      </div>
+    const isActive = (path: string) => {
+        if (path === '/dashboard' && !activeVersion && location.pathname === '/dashboard') return true
+        if (path.startsWith('/models') && location.pathname.startsWith('/models')) return true
+        return false
+    }
 
-      <nav className="sidebar-nav">
-        {/* Versions Section */}
-        <div className="sidebar-section">
-          <div className="sidebar-section-title">Model Versions</div>
-          <ul className="sidebar-list">
-            <li className="sidebar-item">
-              <Link
-                to="/dashboard"
-                className={`sidebar-link ${!activeVersion && isActive('/dashboard') ? 'active' : ''}`}
-              >
-                <Activity className="sidebar-link-icon" size={18} />
-                <span>All Versions</span>
-              </Link>
-            </li>
-            {loading ? (
-              <li className="sidebar-item">
-                <div className="sidebar-link text-muted">
-                  <span>Loading...</span>
+    const isVersionActive = (v: string) => activeVersion === v && !activeLine
+
+    return (
+        <aside className="factory-sidebar">
+            <div className="sidebar-header">
+                <Link to="/dashboard" className="sidebar-logo">
+                    <div style={{
+                        width: 36, height: 36, background: 'var(--primary)', borderRadius: 8,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000'
+                    }}>
+                        <Server size={20} strokeWidth={3} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
+                        <span>FACTORY</span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 400 }}>MONITORING</span>
+                    </div>
+                </Link>
+            </div>
+
+            <nav className="sidebar-nav">
+                <div style={{ marginBottom: '2rem' }}>
+                    <div className="sidebar-section-title">DASHBOARD</div>
+                    <Link to="/dashboard" className={`sidebar-link ${isActive('/dashboard') ? 'active' : ''}`}>
+                        <LayoutGrid size={18} />
+                        <span style={{ flex: 1 }}>Overview</span>
+                        {isActive('/dashboard') && <ChevronRight size={14} />}
+                    </Link>
                 </div>
-              </li>
-            ) : (
-              versions.map((version) => (
-                <li key={version} className="sidebar-item">
-                  <Link
-                    to={`/dashboard/${version}`}
-                    className={`sidebar-link ${activeVersion === version ? 'active' : ''}`}
-                  >
-                    <span className="sidebar-link-icon">v</span>
-                    <span>Version {version}</span>
-                  </Link>
-                </li>
-              ))
-            )}
-          </ul>
-        </div>
 
-        {/* Model Management Section */}
-        <div className="sidebar-section">
-          <div className="sidebar-section-title">Management</div>
-          <ul className="sidebar-list">
-            <li className="sidebar-item">
-              <Link
-                to="/models"
-                className={`sidebar-link ${isActive('/models') ? 'active' : ''}`}
-              >
-                <Package className="sidebar-link-icon" size={18} />
-                <span>Model Library</span>
-              </Link>
-            </li>
-          </ul>
-        </div>
-      </nav>
+                <div style={{ marginBottom: '2rem' }}>
+                    <div className="sidebar-section-title">PRODUCTION LINES</div>
+                    {loading ? (
+                        <div style={{ padding: '0 1rem', fontSize: '0.8rem', color: 'var(--text-dim)' }}>Loading structure...</div>
+                    ) : Object.keys(versionMap).length === 0 ? (
+                        <div style={{ padding: '0 1rem', fontSize: '0.8rem', color: 'var(--text-dim)' }}>No versions found</div>
+                    ) : (
+                        Object.keys(versionMap).map(v => (
+                            <div key={v} style={{ marginBottom: '2px' }}>
+                                {/* Parent Version Item */}
+                                <Link
+                                    to={`/dashboard/${v}`}
+                                    className={`sidebar-link ${activeVersion === v ? 'text-white' : ''}`}
+                                    style={{
+                                        justifyContent: 'space-between',
+                                        background: activeVersion === v ? 'var(--bg-hover)' : 'transparent'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flex: 1 }}>
+                                        <Box size={18} color={activeVersion === v ? 'var(--primary)' : 'currentColor'} />
+                                        <span>Version {v}</span>
+                                    </div>
+                                    <button
+                                        onClick={(e) => toggleVersion(v, e)}
+                                        style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex' }}
+                                    >
+                                        {expandedVersions[v] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                    </button>
+                                </Link>
 
-      {/* Footer */}
-      <div style={{
-        padding: 'var(--spacing-lg)',
-        borderTop: '1px solid var(--neutral-700)',
-        fontSize: '0.75rem',
-        color: 'var(--neutral-500)'
-      }}>
-        <div>Factory Monitoring v1.0</div>
-        <div style={{ marginTop: '0.25rem' }}>© 2024 Industrial Solutions</div>
-      </div>
-    </aside>
-  )
+                                {/* Nested Lines Dropdown */}
+                                {expandedVersions[v] && (
+                                    <div style={{
+                                        paddingLeft: '2.5rem',
+                                        borderLeft: '1px solid var(--border)',
+                                        marginLeft: '1.1rem',
+                                        marginTop: '2px',
+                                        marginBottom: '0.5rem'
+                                    }}>
+                                        {versionMap[v].map(line => (
+                                            <Link
+                                                key={line}
+                                                to={`/dashboard/${v}?line=${line}`}
+                                                className="sidebar-link"
+                                                style={{
+                                                    fontSize: '0.85rem',
+                                                    padding: '0.5rem 0.75rem',
+                                                    background: (activeVersion === v && activeLine === line.toString()) ? 'var(--primary-dim)' : 'transparent',
+                                                    color: (activeVersion === v && activeLine === line.toString()) ? 'var(--primary)' : 'var(--text-muted)'
+                                                }}
+                                            >
+                                                <Activity size={14} />
+                                                <span>Line {line}</span>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                <div>
+                    <div className="sidebar-section-title">SYSTEM</div>
+                    <Link to="/models" className={`sidebar-link ${isActive('/models') ? 'active' : ''}`}>
+                        <Package size={18} />
+                        <span>Model Library</span>
+                    </Link>
+                </div>
+            </nav>
+
+            <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border)' }}>
+                <div className="badge badge-success" style={{ width: '100%', justifyContent: 'center' }}>
+                    <span className="pulse"></span> System Online
+                </div>
+            </div>
+        </aside>
+    )
 }
-
