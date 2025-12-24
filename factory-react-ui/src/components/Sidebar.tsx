@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
-import { Server, Package, LayoutGrid, Box, ChevronRight, ChevronDown, Activity, Circle } from 'lucide-react'
+import { Server, Package, LayoutGrid, Box, ChevronRight, ChevronDown, Activity, Sun, Moon } from 'lucide-react'
 import { factoryApi } from '../services/api'
-import type { FactoryPC } from '../types'
+import { useTheme } from '../contexts/ThemeContext'
 
 export default function Sidebar() {
     const location = useLocation()
     const { version: activeVersion } = useParams()
     const [searchParams] = useSearchParams()
     const activeLine = searchParams.get('line')
+    const { theme, toggleTheme } = useTheme()
 
     // State
     const [versionMap, setVersionMap] = useState<Record<string, number[]>>({})
@@ -68,8 +69,6 @@ export default function Sidebar() {
         if (path.startsWith('/models') && location.pathname.startsWith('/models')) return true
         return false
     }
-
-    const isVersionActive = (v: string) => activeVersion === v && !activeLine
 
     return (
         <aside className="factory-sidebar">
@@ -170,9 +169,10 @@ export default function Sidebar() {
             </nav>
 
             <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border)' }}>
-                <div className="badge badge-success" style={{ width: '100%', justifyContent: 'center' }}>
-                    <span className="pulse"></span> System Online
-                </div>
+                <button className="theme-toggle" onClick={toggleTheme}>
+                    {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                    <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+                </button>
             </div>
         </aside>
     )
