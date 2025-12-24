@@ -1,166 +1,182 @@
 import { useEffect, useState, useRef } from 'react'
-import { X, Server, Download, Upload, Trash2, Check, RefreshCw, FileText, Folder } from 'lucide-react'
+import { X, Server, Activity, FileCode, Upload, Download, Trash2, RefreshCw, CheckCircle, AlertTriangle, FileText, Cpu, Wifi } from 'lucide-react'
 import { factoryApi } from '../services/api'
-import type { PCDetails } from '../types'
+import type { FactoryPC, PCDetails } from '../types'
 
-interface PCDetailsModalProps {
-  pcId: number
+interface Props {
+  pcSummary: FactoryPC
   onClose: () => void
 }
 
-export default function PCDetailsModal({ pcId, onClose }: PCDetailsModalProps) {
-  const [pc, setPC] = useState<PCDetails | null>(null)
+export default function PCDetailsModal({ pcSummary, onClose }: Props) {
+  const [pc, setPc] = useState<PCDetails | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [selectedModel, setSelectedModel] = useState('')
   
-  // UI States
-  const [selectedModel, setSelectedModel] = useState<string>('')
-  const [showUploadModel, setShowUploadModel] = useState(false)
-  const [modelFile, setModelFile] = useState<File | null>(null)
-  const [isDownloading, setIsDownloading] = useState(false)
+  // Action States
+  const [isApplying, setIsApplying] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isDownloadingModel, setIsDownloadingModel] = useState(false)
+  
+  // Upload States
+  const [showUploadUI, setShowUploadUI] = useState<'model' | 'config' | null>(null)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
 
-  // Polling Refs
-  const pollTimer = useRef<number | null>(null) // For download status
-  const refreshTimer = useRef<number | null>(null) // For silent background data refresh
+  const mounted = useRef(true)
+  const pollTimer = useRef<number | null>(null)
 
   useEffect(() => {
-    loadPC(true)
-    
-    // Silent background refresh every 5 seconds to keep status live
-    refreshTimer.current = window.setInterval(() => {
-      loadPC(false)
-    }, 5000)
-
-    return () => {
-      if (pollTimer.current) window.clearTimeout(pollTimer.current)
-      if (refreshTimer.current) window.clearInterval(refreshTimer.current)
+    mounted.current = true
+    loadData(true)
+    // Fast polling (3s) to keep status live
+    const interval = setInterval(() => loadData(false), 3000)
+    return () => { 
+      mounted.current = false
+      clearInterval(interval)
+      if (pollTimer.current) clearTimeout(pollTimer.current)
     }
-  }, [pcId])
+  }, [pcSummary.pcId])
 
-  const loadPC = async (isInitial: boolean) => {
+  const loadData = async (isInitial: boolean) => {
+    if (isInitial) setLoading(true)
     try {
-      if (isInitial) setLoading(true)
-      const data = await factoryApi.getPC(pcId)
-      setPC(data)
-      
-      // Only set selected model on initial load so we don't annoy user if they changed it
-      if (isInitial) {
-        const currentModel = data.availableModels.find(m => m.isCurrentModel)
-        if (currentModel) {
-          setSelectedModel(currentModel.modelName)
-        } else if (data.availableModels.length > 0) {
-          setSelectedModel(data.availableModels[0].modelName)
+      const data = await factoryApi.getPC(pcSummary.pcId)
+      if (mounted.current) {
+        setPc(data)
+        // Auto-select current model if nothing selected
+        if (isInitial && !selectedModel) {
+           const active = data.availableModels.find(m => m.isCurrentModel)
+           if (active) setSelectedModel(active.modelName)
+           else if (data.availableModels.length > 0) setSelectedModel(data.availableModels[0].modelName)
         }
       }
     } catch (err) {
-      console.error('Failed to load PC:', err)
-      if (isInitial) setError('Failed to load PC details')
+      console.error(err)
     } finally {
-      if (isInitial) setLoading(false)
+      if (isInitial && mounted.current) setLoading(false)
     }
   }
 
-  // --- ACTIONS ---
+  // --- Actions ---
 
   const handleApplyModel = async () => {
     if (!pc || !selectedModel) return
-    if (!confirm(`Apply model "${selectedModel}" to this PC?`)) return
+    if (!confirm(`Apply model "${selectedModel}" to PC-${pc.pcNumber}?`)) return
     
+    setIsApplying(true)
     try {
-      const result = await factoryApi.changeModel(pc.pcId, selectedModel)
-      alert(result.message || 'Model change initiated!')
-      loadPC(false) // Instant refresh
+      const res = await factoryApi.changeModel(pc.pcId, selectedModel)
+      alert(res.message || 'Model change initiated!')
+      await loadData(false)
     } catch (err: any) {
-      alert(err.message || 'Failed')
-    }
-  }
-
-  const handleDownloadModel = async () => {
-    if (!pc || !selectedModel) return
-    
-    try {
-      setIsDownloading(true)
-      const result = await factoryApi.downloadModelFromPC(pc.pcId, selectedModel)
-      
-      if (result.success && result.commandId) {
-        pollDownloadStatus(result.commandId)
-      } else {
-        alert('Failed to start download.')
-        setIsDownloading(false)
-      }
-    } catch (err: any) {
-      alert(err.message)
-      setIsDownloading(false)
-    }
-  }
-
-  const pollDownloadStatus = async (commandId: number) => {
-    try {
-      const statusResult = await factoryApi.checkDownloadStatus(commandId)
-      
-      if (statusResult.status === 'Completed') {
-        const link = document.createElement('a')
-        link.href = statusResult.downloadUrl
-        link.download = `${selectedModel}.zip`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        setIsDownloading(false)
-        alert('Download Complete')
-      } else if (statusResult.status === 'Failed') {
-        setIsDownloading(false)
-        alert(`Download failed: ${statusResult.message}`)
-      } else {
-        pollTimer.current = window.setTimeout(() => pollDownloadStatus(commandId), 2000)
-      }
-    } catch {
-      setIsDownloading(false)
-    }
-  }
-
-  const handleUploadModel = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!pc || !modelFile) return
-    try {
-      const result = await factoryApi.uploadModelToPC(pc.pcId, modelFile)
-      alert(result.message)
-      setShowUploadModel(false)
-      setModelFile(null)
-      loadPC(false)
-    } catch (err: any) {
-      alert(err.message)
+      alert(err.message || 'Failed to apply model')
+    } finally {
+      setIsApplying(false)
     }
   }
 
   const handleDeleteModel = async () => {
     if (!pc || !selectedModel) return
-    const current = pc.availableModels.find(m => m.isCurrentModel)
-    if (current && current.modelName === selectedModel) {
-      alert('Cannot delete active model')
-      return
-    }
-    if (!confirm(`Delete model "${selectedModel}"?`)) return
+    if (!confirm(`Permanently DELETE model "${selectedModel}" from PC-${pc.pcNumber}?`)) return
+
+    setIsDeleting(true)
     try {
-      await factoryApi.deleteModelFromPC(pc.pcId, selectedModel)
-      alert('Deleted')
-      loadPC(false)
+      const res = await factoryApi.deleteModelFromPC(pc.pcId, selectedModel)
+      alert(res.message || 'Model deleted')
+      setSelectedModel('') // Reset selection
+      await loadData(false)
     } catch (err: any) {
-      alert(err.message)
+      alert(err.message || 'Failed to delete model')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
-  if (loading) return (
-    <div className="modal-overlay">
-      <div className="modal-content" style={{ justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-        <RefreshCw className="animate-spin" size={32} color="var(--primary-500)" />
-        <p style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>Connecting to PC...</p>
-      </div>
-    </div>
-  )
+  const handleDownloadConfig = async () => {
+    if (!pc) return
+    try {
+        const blob = await factoryApi.downloadConfig(pc.pcId)
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `config_Line${pc.lineNumber}_PC${pc.pcNumber}.ini`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(url)
+    } catch (err: any) {
+        alert(err.message || 'Failed to download config')
+    }
+  }
 
-  if (!pc) return null
+  // Complex Download Logic (Server Polling)
+  const handleDownloadModelFromPC = async () => {
+    if (!pc || !selectedModel) return
+    if (!confirm(`Download "${selectedModel}" from PC to Server? This may take time.`)) return
 
-  const currentModel = pc.availableModels.find(m => m.isCurrentModel)
+    setIsDownloadingModel(true)
+    try {
+        const result = await factoryApi.downloadModelFromPC(pc.pcId, selectedModel)
+        if (result.success && result.commandId) {
+            pollDownloadStatus(result.commandId)
+        } else {
+            alert('Failed to start download command.')
+            setIsDownloadingModel(false)
+        }
+    } catch (err: any) {
+        alert(err.message || 'Failed to init download')
+        setIsDownloadingModel(false)
+    }
+  }
+
+  const pollDownloadStatus = async (commandId: number) => {
+    try {
+        const statusResult = await factoryApi.checkDownloadStatus(commandId)
+        if (statusResult.status === 'Completed') {
+            const link = document.createElement('a')
+            link.href = statusResult.downloadUrl
+            link.download = `${selectedModel}.zip`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            setIsDownloadingModel(false)
+            alert('Download complete!')
+        } else if (statusResult.status === 'Failed') {
+            setIsDownloadingModel(false)
+            alert(`Download failed: ${statusResult.message}`)
+        } else {
+            // Keep polling
+            pollTimer.current = window.setTimeout(() => pollDownloadStatus(commandId), 2000)
+        }
+    } catch (error) {
+        setIsDownloadingModel(false)
+        console.error(error)
+    }
+  }
+
+  const handleUpload = async () => {
+    if (!pc || !uploadFile) return
+    setIsUploading(true)
+    try {
+      if (showUploadUI === 'model') {
+        await factoryApi.uploadModelToPC(pc.pcId, uploadFile)
+      } else {
+        await factoryApi.uploadConfig(pc.pcId, uploadFile)
+      }
+      alert('Upload successful!')
+      setShowUploadUI(null)
+      setUploadFile(null)
+      await loadData(false)
+    } catch (err: any) {
+      alert(err.message || 'Upload failed')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const display = pc || (pcSummary as unknown as PCDetails)
+  const activeModel = pc?.availableModels.find(m => m.isCurrentModel)
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -168,145 +184,162 @@ export default function PCDetailsModal({ pcId, onClose }: PCDetailsModalProps) {
         
         {/* Header */}
         <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ 
-              background: pc.isOnline ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-              padding: '10px', borderRadius: '10px', color: pc.isOnline ? '#34d399' : '#f87171'
-            }}>
-              <Server size={24} />
-            </div>
+          <div style={{display:'flex', alignItems:'center', gap:'1rem'}}>
+            <div className="pulse" style={{ color: display.isOnline ? 'var(--success)' : 'var(--danger)' }} />
             <div>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, lineHeight: 1 }}>Line {pc.lineNumber} - PC {pc.pcNumber}</h2>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                <span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'}`}>
-                  {pc.isOnline ? 'Online' : 'Offline'}
-                </span>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontFamily: 'monospace' }}>
-                  {pc.ipAddress}
-                </span>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>PC-{display.pcNumber}</h2>
+              <div className="text-mono" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {display.ipAddress} • Line {display.lineNumber}
               </div>
             </div>
           </div>
-          <button className="btn-close" onClick={onClose}>
-            <X size={24} />
-          </button>
+          <button onClick={onClose} className="btn btn-secondary btn-icon"><X size={20}/></button>
         </div>
 
         {/* Body */}
         <div className="modal-body">
-          <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '2rem' }}>
-            
-            {/* LEFT COLUMN: Models */}
-            <div>
-              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem' }}>
-                Model Management
-              </h3>
+          {loading && !pc ? (
+             <div style={{textAlign:'center', padding:'3rem', color:'var(--text-dim)'}}>Loading system details...</div>
+          ) : (
+            <div style={{display:'flex', flexDirection:'column', gap:'2rem'}}>
               
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)' }}>
-                {/* Active Model Display */}
-                {currentModel && (
-                   <div style={{ 
-                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                     background: 'rgba(37, 99, 235, 0.1)', border: '1px solid rgba(37, 99, 235, 0.3)',
-                     padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem'
-                   }}>
-                     <div>
-                       <div style={{ fontSize: '0.75rem', color: 'var(--primary-400)', fontWeight: 700, textTransform: 'uppercase' }}>Current Active Model</div>
-                       <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>{currentModel.modelName}</div>
-                     </div>
-                     <Check size={20} color="var(--primary-400)" />
+              {/* Status Cards */}
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'1rem'}}>
+                <div className="card" style={{padding:'1rem', display:'flex', gap:'1rem', alignItems:'center'}}>
+                   <Cpu size={24} color={display.isApplicationRunning ? 'var(--success)' : 'var(--text-dim)'} />
+                   <div>
+                     <div style={{fontSize:'0.7rem', color:'var(--text-muted)', fontWeight:600}}>APP STATE</div>
+                     <div>{display.isApplicationRunning ? 'Running' : 'Stopped'}</div>
                    </div>
-                )}
-
-                {/* Controls */}
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '1rem' }}>
-                  <select 
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    className="form-select"
-                    style={{ 
-                      flex: 1, padding: '10px', background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', 
-                      color: 'white', borderRadius: 'var(--radius-md)'
-                    }}
-                  >
-                    {pc.availableModels.map(m => (
-                      <option key={m.modelId} value={m.modelName}>
-                        {m.modelName} {m.isCurrentModel ? '(Active)' : ''}
-                      </option>
-                    ))}
-                  </select>
                 </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <button onClick={handleApplyModel} disabled={!selectedModel || selectedModel === currentModel?.modelName} className="btn btn-primary">
-                    <Check size={16} /> Apply
-                  </button>
-                  <button onClick={handleDownloadModel} disabled={isDownloading || !selectedModel} className="btn btn-secondary">
-                    {isDownloading ? 'Zipping...' : <><Download size={16} /> Download</>}
-                  </button>
-                  <button onClick={() => setShowUploadModel(true)} className="btn btn-secondary">
-                    <Upload size={16} /> Upload New
-                  </button>
-                  <button onClick={handleDeleteModel} disabled={selectedModel === currentModel?.modelName} className="btn btn-danger">
-                    <Trash2 size={16} /> Delete
-                  </button>
+                <div className="card" style={{padding:'1rem', display:'flex', gap:'1rem', alignItems:'center'}}>
+                   <Activity size={24} color="var(--primary)" />
+                   <div>
+                     <div style={{fontSize:'0.7rem', color:'var(--text-muted)', fontWeight:600}}>VERSION</div>
+                     <div className="text-mono">{display.modelVersion}</div>
+                   </div>
+                </div>
+                <div className="card" style={{padding:'1rem', display:'flex', gap:'1rem', alignItems:'center'}}>
+                   <Wifi size={24} color={display.isOnline ? 'var(--success)' : 'var(--danger)'} />
+                   <div>
+                     <div style={{fontSize:'0.7rem', color:'var(--text-muted)', fontWeight:600}}>NETWORK</div>
+                     <div>{display.isOnline ? 'Online' : 'Offline'}</div>
+                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* RIGHT COLUMN: Info & Config */}
-            <div>
-              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem' }}>
-                System Details
-              </h3>
-              
-              <table className="info-table" style={{ marginBottom: '2rem' }}>
-                <tbody>
-                  <tr><td>Version</td><td>{pc.modelVersion}</td></tr>
-                  <tr><td>Last Heartbeat</td><td>{pc.lastHeartbeat ? new Date(pc.lastHeartbeat).toLocaleTimeString() : 'Never'}</td></tr>
-                  <tr><td>Config Path</td><td style={{ fontSize: '0.8rem' }}>{pc.configFilePath}</td></tr>
-                </tbody>
-              </table>
-
-              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem' }}>
-                Configuration
-              </h3>
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
-                   <FileText size={20} color="var(--text-muted)" />
-                   <div style={{ fontSize: '0.9rem' }}>config.ini</div>
+              {/* Model Manager */}
+              <div>
+                <div style={{display:'flex', justifyContent:'space-between', marginBottom:'0.5rem'}}>
+                   <h3 style={{fontSize:'1rem', fontWeight:600, color:'var(--primary)'}}>Model Management</h3>
+                   {activeModel && <span className="badge badge-success">Active: {activeModel.modelName}</span>}
                 </div>
-                <button 
-                  onClick={async () => {
-                     const blob = await factoryApi.downloadConfig(pc.pcId);
-                     const url = window.URL.createObjectURL(blob);
-                     const a = document.createElement('a'); a.href=url; a.download='config.ini'; a.click();
-                  }}
-                  className="btn btn-secondary" style={{ width: '100%' }}
-                >
-                  <Download size={16} /> Download Config
-                </button>
+                
+                <div className="card">
+                  <div style={{display:'flex', gap:'1rem', marginBottom:'1.5rem'}}>
+                    <select 
+                       className="input-field" 
+                       value={selectedModel} 
+                       onChange={e => setSelectedModel(e.target.value)}
+                    >
+                      <option value="" disabled>Select a model...</option>
+                      {pc?.availableModels.map(m => (
+                        <option key={m.modelId} value={m.modelName}>
+                          {m.modelName} {m.isCurrentModel ? '(Current)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button className="btn btn-secondary btn-icon" onClick={() => loadData(false)}>
+                      <RefreshCw size={18} />
+                    </button>
+                  </div>
+
+                  <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem'}}>
+                     <button 
+                       className="btn btn-primary"
+                       disabled={isApplying || !selectedModel || activeModel?.modelName === selectedModel}
+                       onClick={handleApplyModel}
+                     >
+                       {isApplying ? <div className="pulse" style={{background:'black'}}/> : <CheckCircle size={16}/>}
+                       {isApplying ? 'Applying...' : 'Apply Model'}
+                     </button>
+                     
+                     <button className="btn btn-secondary" onClick={() => setShowUploadUI('model')}>
+                       <Upload size={16}/> Upload New
+                     </button>
+
+                     <button 
+                       className="btn btn-secondary"
+                       disabled={isDownloadingModel || !selectedModel}
+                       onClick={handleDownloadModelFromPC}
+                     >
+                       {isDownloadingModel ? <div className="pulse"/> : <Download size={16}/>}
+                       {isDownloadingModel ? 'Downloading...' : 'Download'}
+                     </button>
+
+                     <button 
+                       className="btn btn-danger"
+                       disabled={isDeleting || !selectedModel || activeModel?.modelName === selectedModel}
+                       onClick={handleDeleteModel}
+                     >
+                       {isDeleting ? <div className="pulse"/> : <Trash2 size={16}/>}
+                       {isDeleting ? 'Deleting...' : 'Delete'}
+                     </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Config Section */}
+              <div>
+                 <h3 style={{fontSize:'1rem', fontWeight:600, color:'var(--primary)', marginBottom:'0.5rem'}}>Configuration</h3>
+                 <div className="card" style={{display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+                    <div style={{display:'flex', gap:'1rem', alignItems:'center'}}>
+                       <FileText size={24} color="var(--text-muted)"/>
+                       <div>
+                          <div className="text-mono">config.ini</div>
+                          <div style={{fontSize:'0.75rem', color:'var(--text-dim)'}}>
+                             Last Modified: {pc?.config ? new Date(pc.config.lastModified).toLocaleDateString() : 'N/A'}
+                          </div>
+                       </div>
+                    </div>
+                    <div style={{display:'flex', gap:'0.5rem'}}>
+                       <button className="btn btn-secondary" onClick={() => setShowUploadUI('config')}>Upload</button>
+                       <button className="btn btn-secondary" onClick={handleDownloadConfig} disabled={!pc?.config}>Download</button>
+                    </div>
+                 </div>
               </div>
 
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Upload Overlay inside Modal */}
-        {showUploadModel && (
-          <div style={{ 
-            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.8)', 
-            display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(5px)',
-            borderRadius: 'var(--radius-xl)'
-          }}>
-            <div style={{ background: 'var(--bg-card)', padding: '2rem', borderRadius: 'var(--radius-lg)', width: '400px', border: '1px solid var(--border-highlight)' }}>
-              <h3>Upload Model (ZIP)</h3>
-              <input type="file" accept=".zip" onChange={e => setModelFile(e.target.files?.[0] || null)} style={{ margin: '1rem 0', color: 'white' }} />
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={handleUploadModel} className="btn btn-primary" style={{ flex: 1 }}>Upload</button>
-                <button onClick={() => setShowUploadModel(false)} className="btn btn-secondary" style={{ flex: 1 }}>Cancel</button>
-              </div>
-            </div>
+        {/* Upload Overlay */}
+        {showUploadUI && (
+          <div className="modal-overlay" style={{zIndex: 1100}} onClick={() => setShowUploadUI(null)}>
+             <div className="modal-content" style={{maxWidth:'400px', height:'auto'}} onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                   <h3>Upload {showUploadUI === 'model' ? 'Model' : 'Config'}</h3>
+                   <button onClick={() => setShowUploadUI(null)} className="btn btn-icon btn-secondary"><X size={18}/></button>
+                </div>
+                <div className="modal-body">
+                   <div style={{border:'2px dashed var(--border)', borderRadius:'var(--radius-md)', padding:'2rem', textAlign:'center', marginBottom:'1.5rem'}}>
+                      <input 
+                        type="file" 
+                        accept={showUploadUI === 'model' ? ".zip" : ".ini,.txt"}
+                        onChange={e => setUploadFile(e.target.files?.[0] || null)}
+                        style={{color: 'var(--text-main)'}}
+                      />
+                   </div>
+                   <button 
+                     className="btn btn-primary" 
+                     style={{width:'100%'}} 
+                     onClick={handleUpload}
+                     disabled={isUploading || !uploadFile}
+                   >
+                     {isUploading ? 'Uploading...' : 'Confirm Upload'}
+                   </button>
+                </div>
+             </div>
           </div>
         )}
 

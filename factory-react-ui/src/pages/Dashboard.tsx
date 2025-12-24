@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { LayoutGrid, List, Server } from 'lucide-react'
+import { LayoutGrid, List, Activity, Monitor, Filter } from 'lucide-react'
 import { factoryApi } from '../services/api'
 import PCCard from '../components/PCCard'
-import type { LineGroup, Stats } from '../types'
+import PCDetailsModal from '../components/PCDetailsModal'
+import type { LineGroup, Stats, FactoryPC } from '../types'
 
 export default function Dashboard() {
     const { version } = useParams()
@@ -11,220 +12,129 @@ export default function Dashboard() {
     const lineParam = searchParams.get('line')
 
     const [data, setData] = useState<{ total: number; online: number; offline: number; lines: LineGroup[] } | null>(null)
-    const [stats, setStats] = useState<Stats | null>(null)
     const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards')
     const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
+    const [selectedPC, setSelectedPC] = useState<FactoryPC | null>(null)
+    const mounted = useRef(true)
 
     useEffect(() => {
-        loadData()
-        loadStats()
+        mounted.current = true
+        loadData(true)
+        const interval = setInterval(() => loadData(false), 5000)
+        return () => { mounted.current = false; clearInterval(interval) }
+    }, [version, lineParam]) // Re-fetch when version or line changes
 
-        // Auto-refresh every 30 seconds
-        const interval = setInterval(() => {
-            loadData()
-            loadStats()
-        }, 30000)
-
-        return () => clearInterval(interval)
-    }, [version, lineParam])
-
-    const loadData = async () => {
+    const loadData = async (isInitial: boolean) => {
+        if (isInitial) setLoading(true)
         try {
-            setLoading(true)
-            setError(null)
-            // Pass lineParam to API
-            const line = lineParam ? parseInt(lineParam) : undefined
-            const result = await factoryApi.getPCs(version, line)
-            setData(result)
+            // Pass the specific line filter if present
+            const targetLine = lineParam ? parseInt(lineParam) : undefined
+            const res = await factoryApi.getPCs(version, targetLine)
+
+            if (mounted.current) setData(res)
         } catch (err) {
-            console.error('Failed to load PCs:', err)
-            setError('Failed to load PC data')
+            console.error(err)
         } finally {
-            setLoading(false)
+            if (isInitial && mounted.current) setLoading(false)
         }
     }
 
-    const loadStats = async () => {
-        try {
-            const result = await factoryApi.getStats()
-            setStats(result)
-        } catch (err) {
-            console.error('Failed to load stats:', err)
-        }
-    }
+    if (loading && !data) return <div className="main-content" style={{ display: 'flex', justifyContent: 'center', paddingTop: '10rem' }}>Loading...</div>
 
-    if (loading && !data) {
-        return (
-            <div className="main-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
-                <div style={{ textAlign: 'center', color: 'var(--neutral-400)' }}>
-                    <div style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Loading...</div>
-                    <div style={{ fontSize: '0.875rem' }}>Fetching factory data</div>
-                </div>
-            </div>
-        )
-    }
-
-    if (error) {
-        return (
-            <div className="main-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
-                <div style={{ color: 'var(--danger-500)' }}>{error}</div>
-            </div>
-        )
+    // Dynamic Header Text
+    const getHeaderText = () => {
+        if (version && lineParam) return `Version ${version} • Line ${lineParam}`
+        if (version) return `Version ${version}`
+        return 'Factory Floor Overview'
     }
 
     return (
-        <>
-            {/* Header */}
-            <div className="main-header">
-                <div className="header-title-section">
-                    <h1 className="header-title">
-                        {version ? `Version ${version}` : 'All Factory PCs'}
-                        {lineParam && <span style={{ color: 'var(--neutral-500)', fontWeight: 400 }}> / Line {lineParam}</span>}
+        <div className="main-content">
+            {/* Dashboard Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <div>
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        {getHeaderText()}
+                        {lineParam && <span className="badge badge-neutral"><Filter size={12} /> Filtered</span>}
                     </h1>
-                    <p className="header-subtitle">
-                        {data?.total || 0} PCs • {data?.online || 0} Online • {data?.offline || 0} Offline
-                    </p>
-                </div>
-                <div className="header-actions">
-                    {stats && (
-                        <div style={{ display: 'flex', gap: 'var(--spacing-lg)', marginRight: 'var(--spacing-lg)' }}>
-                            <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--success-500)' }}>
-                                    {stats.onlinePCs}
-                                </div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--neutral-400)' }}>Online</div>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--warning-500)' }}>
-                                    {stats.runningApps}
-                                </div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--neutral-400)' }}>Running</div>
-                            </div>
-                        </div>
-                    )}
-                    <div className="view-toggle">
-                        <button
-                            className={`btn ${viewMode === 'cards' ? 'active' : ''}`}
-                            onClick={() => setViewMode('cards')}
-                        >
-                            <LayoutGrid size={16} />
-                            Cards
-                        </button>
-                        <button
-                            className={`btn ${viewMode === 'list' ? 'active' : ''}`}
-                            onClick={() => setViewMode('list')}
-                        >
-                            <List size={16} />
-                            List
-                        </button>
+                    <div style={{ display: 'flex', gap: '1rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                        <span style={{ color: 'var(--success)' }}>● {data?.online || 0} Online</span>
+                        <span style={{ color: 'var(--danger)' }}>● {data?.offline || 0} Offline</span>
                     </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-card)', padding: '0.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                    <button
+                        className={`btn ${viewMode === 'cards' ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ padding: '0.4rem', background: viewMode === 'cards' ? 'var(--primary)' : 'transparent', color: viewMode === 'cards' ? 'black' : 'var(--text-muted)' }}
+                        onClick={() => setViewMode('cards')}
+                    >
+                        <LayoutGrid size={18} />
+                    </button>
+                    <button
+                        className={`btn ${viewMode === 'list' ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ padding: '0.4rem', background: viewMode === 'list' ? 'var(--primary)' : 'transparent', color: viewMode === 'list' ? 'black' : 'var(--text-muted)' }}
+                        onClick={() => setViewMode('list')}
+                    >
+                        <List size={18} />
+                    </button>
                 </div>
             </div>
 
             {/* Content */}
-            <div className="main-content">
-                {!data?.lines || data.lines.length === 0 ? (
-                    <div style={{
-                        textAlign: 'center',
-                        padding: 'var(--spacing-3xl)',
-                        background: 'var(--neutral-800)',
-                        borderRadius: 'var(--radius-xl)',
-                        border: '1px solid var(--neutral-700)'
-                    }}>
-                        <Server size={64} color="var(--neutral-600)" strokeWidth={1.5} style={{ margin: '0 auto var(--spacing-lg)' }} />
-                        <h2 style={{ color: 'var(--neutral-300)', marginBottom: 'var(--spacing-sm)' }}>
-                            No PCs Found
-                        </h2>
-                        <p style={{ color: 'var(--neutral-500)' }}>
-                            {version
-                                ? `No PCs registered with version ${version} ${lineParam ? `on Line ${lineParam}` : ''}`
-                                : 'No PCs have been registered yet'}
-                        </p>
-                    </div>
-                ) : (
-                    data.lines.map((line) => (
-                        <div key={line.lineNumber} className="line-group">
-                            <div className="line-header">
-                                <div>
-                                    <h2 className="line-title">Line {line.lineNumber}</h2>
-                                    <div className="line-count">
-                                        {line.pcs.length} PC{line.pcs.length !== 1 ? 's' : ''} •{' '}
-                                        {line.pcs.filter(pc => pc.isOnline).length} Online
-                                    </div>
-                                </div>
-                                
-                            </div>
-
-                            {viewMode === 'cards' ? (
-                                <div className="pc-grid">
-                                    {line.pcs.map((pc) => (
-                                        <PCCard key={pc.pcId} pc={pc} />
-                                    ))}
-                                </div>
-                            ) : (
-                                <div style={{
-                                    background: 'var(--neutral-800)',
-                                    borderRadius: 'var(--radius-lg)',
-                                    overflow: 'hidden',
-                                    border: '1px solid var(--neutral-700)'
-                                }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                        <thead>
-                                            <tr style={{ background: 'var(--neutral-700)', textAlign: 'left' }}>
-                                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600, fontSize: '0.875rem' }}>PC</th>
-                                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600, fontSize: '0.875rem' }}>IP Address</th>
-                                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600, fontSize: '0.875rem' }}>Status</th>
-                                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600, fontSize: '0.875rem' }}>App</th>
-                                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600, fontSize: '0.875rem' }}>Current Model</th>
-                                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600, fontSize: '0.875rem' }}>Version</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {line.pcs.map((pc, index) => (
-                                                <tr
-                                                    key={pc.pcId}
-                                                    onClick={() => window.location.href = `/pc/${pc.pcId}`}
-                                                    style={{
-                                                        borderTop: index > 0 ? '1px solid var(--neutral-700)' : 'none',
-                                                        cursor: 'pointer',
-                                                        transition: 'background var(--transition-fast)'
-                                                    }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--neutral-700)'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                                >
-                                                    <td style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>
-                                                        PC {pc.pcNumber}
-                                                    </td>
-                                                    <td style={{ padding: 'var(--spacing-md)', fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                                                        {pc.ipAddress}
-                                                    </td>
-                                                    <td style={{ padding: 'var(--spacing-md)' }}>
-                                                        <span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'}`}>
-                                                            {pc.isOnline ? 'Online' : 'Offline'}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: 'var(--spacing-md)' }}>
-                                                        <span className={`badge ${pc.isApplicationRunning ? 'badge-success' : 'badge-neutral'}`}>
-                                                            {pc.isApplicationRunning ? 'Running' : 'Stopped'}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: 'var(--spacing-md)', fontFamily: 'monospace', fontSize: '0.875rem', color: 'var(--primary-400)' }}>
-                                                        {pc.currentModel?.modelName || 'None'}
-                                                    </td>
-                                                    <td style={{ padding: 'var(--spacing-md)', fontSize: '0.875rem' }}>
-                                                        {pc.modelVersion}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
+            {data?.lines.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-dim)' }}>
+                    <Activity size={48} style={{ opacity: 0.3, marginBottom: '1rem' }} />
+                    <h3>No units found</h3>
+                    <p>There are no active PCs for this selection.</p>
+                </div>
+            ) : (
+                data?.lines.map(line => (
+                    <div key={line.lineNumber} style={{ marginBottom: '3rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                            <h2 style={{ fontSize: '1.2rem', color: 'var(--primary)' }}>Line {line.lineNumber}</h2>
+                            <span className="badge badge-neutral">{line.pcs.length} PCs</span>
                         </div>
-                    ))
-                )}
-            </div>
-        </>
+
+                        {viewMode === 'cards' ? (
+                            <div className="pc-grid">
+                                {line.pcs.map(pc => <PCCard key={pc.pcId} pc={pc} onClick={setSelectedPC} />)}
+                            </div>
+                        ) : (
+                            <div className="table-container">
+                                <table className="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Unit</th>
+                                            <th>IP Address</th>
+                                            <th>Status</th>
+                                            <th>Application</th>
+                                            <th>Current Model</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {line.pcs.map(pc => (
+                                            <tr key={pc.pcId} onClick={() => setSelectedPC(pc)}>
+                                                <td style={{ fontWeight: 600 }}>PC-{pc.pcNumber}</td>
+                                                <td className="text-mono" style={{ color: 'var(--text-dim)' }}>{pc.ipAddress}</td>
+                                                <td>
+                                                    <span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'}`}>
+                                                        {pc.isOnline ? 'Online' : 'Offline'}
+                                                    </span>
+                                                </td>
+                                                <td>{pc.isApplicationRunning ? 'Running' : 'Stopped'}</td>
+                                                <td className="text-mono">{pc.currentModel?.modelName || '-'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                ))
+            )}
+
+            {selectedPC && <PCDetailsModal pcSummary={selectedPC} onClose={() => setSelectedPC(null)} />}
+        </div>
     )
 }
