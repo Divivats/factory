@@ -9,10 +9,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "React Frontend", "React Fro
 		factory-react-ui\src\services\api.ts = factory-react-ui\src\services\api.ts
 		factory-react-ui\src\pages\Dashboard.tsx = factory-react-ui\src\pages\Dashboard.tsx
 		factory-react-ui\src\index.css = factory-react-ui\src\index.css
+		factory-react-ui\src\components\Layout.tsx = factory-react-ui\src\components\Layout.tsx
+		factory-react-ui\src\pages\ModelLibrary.tsx = factory-react-ui\src\pages\ModelLibrary.tsx
 		factory-react-ui\package.json = factory-react-ui\package.json
 		factory-react-ui\src\components\PCCard.tsx = factory-react-ui\src\components\PCCard.tsx
 		factory-react-ui\src\pages\PCDetails.tsx = factory-react-ui\src\pages\PCDetails.tsx
 		factory-react-ui\README.md = factory-react-ui\README.md
+		factory-react-ui\src\components\Sidebar.tsx = factory-react-ui\src\components\Sidebar.tsx
 		factory-react-ui\tsconfig.json = factory-react-ui\tsconfig.json
 		factory-react-ui\vite.config.ts = factory-react-ui\vite.config.ts
 	EndProjectSection

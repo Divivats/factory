@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Package, Upload, Trash2, Rocket, Download, Filter, X, Check } from 'lucide-react'
+import { Package, Upload, Trash2, Rocket, Download, X, HardDrive } from 'lucide-react'
 import { factoryApi } from '../services/api'
 import type { ModelFile, ApplyModelRequest } from '../types'
 
@@ -108,101 +108,150 @@ export default function ModelLibrary() {
     }
 
     return (
-        <div className="main-content">
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <div>
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white' }}>Model Library</h1>
-                    <p style={{ color: 'var(--text-muted)' }}>Central repository for software models</p>
+        <div className="main-content" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Sticky Header - Matches Dashboard */}
+            <div className="dashboard-header">
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <h1 style={{
+                            fontSize: '1.1rem',
+                            fontWeight: 700,
+                            margin: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                        }}>
+                            <HardDrive size={16} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                            <span>Model Library</span>
+                        </h1>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                            {models.length} {models.length === 1 ? 'model' : 'models'}
+                        </div>
+                    </div>
+
+                    <button className="btn btn-primary" onClick={() => setShowUpload(true)} style={{ fontSize: '0.85rem', padding: '0.5rem 0.875rem' }}>
+                        <Upload size={15} /> Upload Model
+                    </button>
                 </div>
-                <button className="btn btn-primary" onClick={() => setShowUpload(true)}>
-                    <Upload size={18} /> Upload New Model
-                </button>
             </div>
 
-            {/* List */}
-            {loading ? (
-                <div style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '3rem' }}>Loading library...</div>
-            ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {models.map(m => (
-                        <div key={m.modelFileId} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                            <div style={{
-                                width: 56, height: 56, background: 'var(--bg-hover)', borderRadius: 'var(--radius-md)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            {/* Scrollable Content */}
+            <div className="dashboard-scroll-area">
+                {loading ? (
+                    <div style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '3rem' }}>Loading library...</div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {models.map(m => (
+                            <div key={m.modelFileId} className="card" style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '1rem',
+                                padding: '1rem',
+                                transition: 'all 0.2s'
                             }}>
-                                <Package size={28} color="var(--primary)" />
-                            </div>
-
-                            <div style={{ flex: 1 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.25rem' }}>
-                                    <h3 style={{ fontWeight: 600, fontSize: '1.1rem' }}>{m.modelName}</h3>
-                                    {m.category && <span className="badge badge-neutral">{m.category}</span>}
+                                {/* Icon */}
+                                <div style={{
+                                    width: 48,
+                                    height: 48,
+                                    background: 'linear-gradient(135deg, var(--bg-hover), var(--bg-panel))',
+                                    borderRadius: 'var(--radius-md)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                    border: '1px solid var(--border)'
+                                }}>
+                                    <Package size={24} color="var(--primary)" />
                                 </div>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-                                    {m.description || 'No description provided.'}
-                                </p>
-                                <div className="text-mono" style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
-                                    {m.fileName} • {(m.fileSize / 1024 / 1024).toFixed(2)} MB • {new Date(m.uploadedDate).toLocaleDateString()}
+
+                                {/* Content */}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.25rem' }}>
+                                        <h3 style={{ fontWeight: 600, fontSize: '0.95rem', margin: 0 }}>{m.modelName}</h3>
+                                        {m.category && <span className="badge badge-neutral" style={{ fontSize: '0.6rem' }}>{m.category}</span>}
+                                    </div>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.375rem', margin: 0 }}>
+                                        {m.description || 'No description provided.'}
+                                    </p>
+                                    <div className="text-mono" style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                                        {m.fileName} • {(m.fileSize / 1024 / 1024).toFixed(2)} MB • {new Date(m.uploadedDate).toLocaleDateString()}
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                                    <button
+                                        className="btn btn-success"
+                                        onClick={() => { setSelectedModel(m); setShowDeploy(true); }}
+                                        style={{ fontSize: '0.8rem', padding: '0.4rem 0.75rem' }}
+                                    >
+                                        <Rocket size={14} /> Deploy
+                                    </button>
+                                    <button
+                                        className="btn btn-secondary btn-icon"
+                                        onClick={() => handleDownload(m)}
+                                        title="Download"
+                                        style={{ padding: '0.4rem' }}
+                                    >
+                                        <Download size={16} />
+                                    </button>
+                                    <button
+                                        className="btn btn-danger btn-icon"
+                                        onClick={() => handleDelete(m.modelFileId)}
+                                        title="Delete"
+                                        style={{ padding: '0.4rem' }}
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                 </div>
                             </div>
-
-                            <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                <button
-                                    className="btn btn-success"
-                                    onClick={() => { setSelectedModel(m); setShowDeploy(true); }}
-                                >
-                                    <Rocket size={16} /> Deploy
-                                </button>
-                                <button
-                                    className="btn btn-secondary btn-icon"
-                                    onClick={() => handleDownload(m)}
-                                    title="Download"
-                                >
-                                    <Download size={18} />
-                                </button>
-                                <button
-                                    className="btn btn-danger btn-icon"
-                                    onClick={() => handleDelete(m.modelFileId)}
-                                    title="Delete"
-                                >
-                                    <Trash2 size={18} />
-                                </button>
+                        ))}
+                        {models.length === 0 && (
+                            <div style={{
+                                padding: '3rem',
+                                border: '2px dashed var(--border)',
+                                borderRadius: 'var(--radius-lg)',
+                                textAlign: 'center',
+                                color: 'var(--text-dim)',
+                                background: 'var(--bg-hover)'
+                            }}>
+                                <Package size={48} style={{ opacity: 0.3, marginBottom: '1rem' }} />
+                                <p style={{ margin: 0, fontSize: '0.95rem' }}>No models found. Upload a .zip file to get started.</p>
                             </div>
-                        </div>
-                    ))}
-                    {models.length === 0 && (
-                        <div style={{ padding: '4rem', border: '2px dashed var(--border)', borderRadius: 'var(--radius-lg)', textAlign: 'center', color: 'var(--text-dim)' }}>
-                            No models found. Upload a .zip file to get started.
-                        </div>
-                    )}
-                </div>
-            )}
+                        )}
+                    </div>
+                )}
+            </div>
 
             {/* Upload Modal */}
             {showUpload && (
                 <div className="modal-overlay" onClick={() => setShowUpload(false)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', height: 'auto' }}>
                         <div className="modal-header">
-                            <h3>Upload Model</h3>
+                            <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Upload Model</h3>
                             <button onClick={() => setShowUpload(false)} className="btn btn-secondary btn-icon"><X size={18} /></button>
                         </div>
                         <form onSubmit={handleUpload} className="modal-body">
                             <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>ZIP File</label>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>ZIP File *</label>
                                 <input type="file" accept=".zip" required className="input-field" onChange={e => setUploadFile(e.target.files?.[0] || null)} />
                             </div>
                             <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Model Name</label>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Model Name</label>
                                 <input className="input-field" value={uploadName} onChange={e => setUploadName(e.target.value)} placeholder="e.g. Production_RC1" />
                             </div>
                             <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Description</label>
-                                <input className="input-field" value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} placeholder="Description..." />
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Description</label>
+                                <input className="input-field" value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} placeholder="Brief description..." />
                             </div>
-                            <div style={{ marginBottom: '2rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Category</label>
-                                <input className="input-field" value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} placeholder="e.g. Release" />
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Category</label>
+                                <input className="input-field" value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} placeholder="e.g. Release, Beta" />
                             </div>
                             <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={isUploading}>
                                 {isUploading ? 'Uploading...' : 'Upload Model'}
@@ -217,12 +266,12 @@ export default function ModelLibrary() {
                 <div className="modal-overlay" onClick={() => setShowDeploy(false)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', height: 'auto' }}>
                         <div className="modal-header">
-                            <h3>Deploy "{selectedModel.modelName}"</h3>
+                            <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Deploy "{selectedModel.modelName}"</h3>
                             <button onClick={() => setShowDeploy(false)} className="btn btn-secondary btn-icon"><X size={18} /></button>
                         </div>
                         <form onSubmit={handleDeploy} className="modal-body">
                             <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Target Scope</label>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Target Scope</label>
                                 <select className="input-field" value={applyTarget} onChange={(e: any) => setApplyTarget(e.target.value)}>
                                     <option value="all">All PCs</option>
                                     <option value="version">By Version</option>
@@ -233,7 +282,7 @@ export default function ModelLibrary() {
 
                             {(applyTarget === 'version' || applyTarget === 'lineandversion') && (
                                 <div style={{ marginBottom: '1rem' }}>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Version</label>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Version</label>
                                     <select className="input-field" required value={applyVersion} onChange={e => setApplyVersion(e.target.value)}>
                                         <option value="">Select Version...</option>
                                         {versions.map(v => <option key={v} value={v}>{v}</option>)}
@@ -243,7 +292,7 @@ export default function ModelLibrary() {
 
                             {(applyTarget === 'line' || applyTarget === 'lineandversion') && (
                                 <div style={{ marginBottom: '1rem' }}>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Line</label>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Line</label>
                                     <select className="input-field" required value={applyLine} onChange={e => setApplyLine(Number(e.target.value))}>
                                         <option value="">Select Line...</option>
                                         {lines.map(l => <option key={l} value={l}>Line {l}</option>)}
@@ -251,9 +300,15 @@ export default function ModelLibrary() {
                                 </div>
                             )}
 
-                            <div style={{ background: 'var(--bg-hover)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }}>
-                                <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-main)' }}>
-                                    <Rocket size={16} color="var(--success)" />
+                            <div style={{
+                                background: 'rgba(16, 185, 129, 0.1)',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                padding: '0.875rem',
+                                borderRadius: 'var(--radius-md)',
+                                marginBottom: '1.5rem'
+                            }}>
+                                <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-main)', alignItems: 'flex-start' }}>
+                                    <Rocket size={16} color="var(--success)" style={{ flexShrink: 0, marginTop: '0.125rem' }} />
                                     <span>This will immediately push the model to all matching PCs.</span>
                                 </div>
                             </div>
