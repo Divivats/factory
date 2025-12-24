@@ -159,9 +159,9 @@ export default function ModelLibrary() {
       {/* Header */}
       <div className="main-header">
         <div className="header-title-section">
-          <h1 className="header-title">Model Library</h1>
+          <h1 className="header-title">Model Management</h1>
           <p className="header-subtitle">
-            Manage model templates and deploy to factory PCs
+            Manage model and deploy to factory PCs
           </p>
         </div>
         <div className="header-actions">
