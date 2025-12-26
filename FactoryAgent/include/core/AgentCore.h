@@ -1,12 +1,6 @@
 #ifndef AGENT_CORE_H
 #define AGENT_CORE_H
 
-/*
- * AgentCore.h
- * Main agent orchestrator
- * Coordinates all services - NO business logic here
- */
-
 #include "../common/Types.h"
 #include <windows.h>
 

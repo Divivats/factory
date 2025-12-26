@@ -1,12 +1,6 @@
 #ifndef CONFIG_SERVICE_H
 #define CONFIG_SERVICE_H
 
-/*
- * ConfigService.h
- * Handles configuration operations
- * Single Responsibility: Config management only
- */
-
 #include "../common/Types.h"
 #include "../monitoring/ConfigManager.h"
 #include "../../third_party/json/json.hpp"

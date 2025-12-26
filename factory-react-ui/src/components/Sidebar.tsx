@@ -165,6 +165,10 @@ export default function Sidebar() {
                         <Package size={18} />
                         <span>Model Library</span>
                     </Link>
+                    <Link to="/logs" className={`sidebar-link ${isActive('/logs') ? 'active' : ''}`}>
+                        <Package size={18} />
+                        <span>Log Analyzer</span>
+                    </Link>
                 </div>
             </nav>
 

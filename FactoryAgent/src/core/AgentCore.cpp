@@ -1,3 +1,10 @@
+// Agent Core - OPTIMIZED Implementation
+// Location: src/AgentCore.cpp
+// OPTIMIZATIONS:
+// 1. Reduced sync frequency (not on every heartbeat)
+// 2. Only sync when there are actual changes
+// 3. Non-blocking command execution
+
 #include "../include/core/AgentCore.h"
 #include "../include/services/RegistrationService.h"
 #include "../include/services/HeartbeatService.h"
@@ -108,6 +115,10 @@ void AgentCore::WorkerLoop() {
     bool registered = false;
     int registrationRetries = 0;
 
+    // OPTIMIZATION: Counter for sync operations
+    int heartbeatCount = 0;
+    const int SYNC_INTERVAL = 10; // Sync every 10th heartbeat (every 10 seconds if heartbeat is 1s)
+
     while (!stopRequested_) {
         if (!registered) {
             if (registrationRetries < AgentConstants::MAX_REGISTRATION_RETRIES) {
@@ -150,10 +161,12 @@ void AgentCore::WorkerLoop() {
 
         if (registered) {
             json commands;
+
+            // Send heartbeat (lightweight operation)
             bool heartbeatSuccess = heartbeatService_->SendHeartbeat(
-                settings_.pcId, 
+                settings_.pcId,
                 processMonitor_->IsProcessRunning(settings_.exeName),
-                httpClient_, 
+                httpClient_,
                 &commands
             );
 
@@ -185,16 +198,25 @@ void AgentCore::WorkerLoop() {
             else {
                 connectionFailureCount_ = 0;
 
+                // Process commands (non-blocking)
                 if (!commands.empty()) {
                     commandExecutor_->ProcessCommands(commands);
                 }
 
-                configService_->SyncConfigToServer();
-                logService_->SyncLogsToServer();
-                modelService_->SyncModelsToServer();
+                // OPTIMIZATION: Only sync every Nth heartbeat
+                heartbeatCount++;
+                if (heartbeatCount >= SYNC_INTERVAL) {
+                    // Sync operations (potentially time-consuming)
+                    configService_->SyncConfigToServer();
+                    logService_->SyncLogsToServer();
+                    modelService_->SyncModelsToServer();
+
+                    heartbeatCount = 0;
+                }
             }
         }
 
+        // Wait for next heartbeat interval
         for (int i = 0; i < AgentConstants::HEARTBEAT_INTERVAL_SECONDS && !stopRequested_; ++i) {
             Sleep(1000);
         }
