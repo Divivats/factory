@@ -4,6 +4,7 @@ import { LayoutGrid, List, Activity, Filter, ChevronRight, Zap } from 'lucide-re
 import { factoryApi } from '../services/api'
 import PCCard from '../components/PCCard'
 import PCDetailsModal from '../components/PCDetailsModal'
+import LineModelManagerModal from '../components/LineModelManagerModal'
 import type { LineGroup, FactoryPC } from '../types'
 
 export default function Dashboard() {
@@ -15,6 +16,7 @@ export default function Dashboard() {
     const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards')
     const [loading, setLoading] = useState(true)
     const [selectedPC, setSelectedPC] = useState<FactoryPC | null>(null)
+    const [managingLine, setManagingLine] = useState<number | null>(null)
     const [expandedLines, setExpandedLines] = useState<Record<number, boolean>>({})
     const mounted = useRef(true)
 
@@ -162,6 +164,23 @@ export default function Dashboard() {
                                 <span className="badge badge-neutral" style={{ fontSize: '0.6rem' }}>{line.pcs.length} Units</span>
                             </div>
 
+                            <button
+                                className="btn btn-secondary"
+                                style={{
+                                    fontSize: '0.75rem',
+                                    padding: '0.25rem 0.5rem',
+                                    height: 'auto',
+                                    marginLeft: 'auto',
+                                    marginRight: '1rem'
+                                }}
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    setManagingLine(line.lineNumber)
+                                }}
+                            >
+                                Manage Models
+                            </button>
+
                             {/* Collapsible Line Content */}
                             <div className={`line-content ${expandedLines[line.lineNumber] ? '' : 'collapsed'}`}>
                                 {viewMode === 'cards' ? (
@@ -205,6 +224,7 @@ export default function Dashboard() {
             </div>
 
             {selectedPC && <PCDetailsModal pcSummary={selectedPC} onClose={() => setSelectedPC(null)} />}
+            {managingLine !== null && <LineModelManagerModal lineNumber={managingLine} onClose={() => setManagingLine(null)} />}
         </div>
     )
 }
