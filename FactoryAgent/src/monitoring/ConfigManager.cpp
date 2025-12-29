@@ -78,7 +78,7 @@ std::string ConfigManager::GetCurrentModel(const std::string& configContent) {
 }
 
 bool ConfigManager::UpdateCurrentModel(std::string& configContent, const std::string& modelName, const std::string& modelPath) {
-    std::regex modelRegex(R"((\[current_model\]\s*model\s*=\s*)([^\s\r\n]+))");
+    std::regex modelRegex(R"((\[current_model\]\s*model\s*=\s*)(.*))");
     configContent = std::regex_replace(configContent, modelRegex, "$1" + modelName);
 
     std::regex pathRegex(R"((model_path\s*=\s*)([^\r\n]+))");

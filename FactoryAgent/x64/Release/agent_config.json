@@ -2,11 +2,11 @@
     "configFilePath": "C:\\LAI\\LAI-Operational\\config.ini",
     "exeName": "msedge.exe",
     "ipAddress": "192.168.168.223",
-    "lineNumber": 1,
+    "lineNumber": 4,
     "logFilePath": "C:\\LAI\\LAI-WorkData\\Log",
     "modelFolderPath": "C:\\LAI\\LAI-Operational\\Model",
     "modelVersion": "3.5",
     "pcId": 0,
-    "pcNumber": 39,
+    "pcNumber": 1,
     "serverUrl": "http://localhost:5000"
 }

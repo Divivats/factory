@@ -68,5 +68,18 @@ export interface ApplyModelRequest {
   lineNumber?: number
   selectedPCIds?: number[]
   applyImmediately: boolean
+  checkOnly?: boolean
+  forceOverwrite?: boolean
+  modelName?: string
+}
+
+export interface LineModelOption {
+  modelName: string
+  modelFileId?: number
+  inLibrary: boolean
+  availableOnPCIds: number[]
+  totalPCsInLine: number
+  complianceCount: number
+  complianceText: string
 }
 

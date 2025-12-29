@@ -1,10 +1,10 @@
 import axios from 'axios'
 import type {
-    FactoryPC,
     PCDetails,
     ModelFile,
     Stats,
     ApplyModelRequest,
+    LineModelOption,
 } from '../types'
 
 const api = axios.create({
@@ -123,6 +123,31 @@ export const factoryApi = {
             responseType: 'blob',
         })
         return response.data
+    },
+
+    // Line Model Management
+    getLineAvailableModels: async (lineNumber: number): Promise<LineModelOption[]> => {
+        const { data } = await api.get(`/ModelLibrary/line-available/${lineNumber}`)
+        return data
+    },
+
+    deleteLineModel: async (lineNumber: number, modelName: string) => {
+        const { data } = await api.post('/ModelLibrary/line-delete', { lineNumber, modelName })
+        return data
+    },
+
+    applyModelToTargets: async (data: {
+        modelFileId: number,
+        targetType: string,
+        lineNumber?: number,
+        version?: string,
+        applyImmediately: boolean,
+        checkOnly?: boolean,
+        forceOverwrite?: boolean,
+        modelName?: string
+    }) => {
+        const { data: res } = await api.post('/ModelLibrary/apply', data)
+        return res
     },
 
     uploadModelToPC: async (pcId: number, file: File) => {
