@@ -1,7 +1,10 @@
-﻿import type { LogFileStructure, LogFileContent, AnalysisResult } from '../types/logTypes';
+﻿// Log Analyzer API - Samsung Industry Grade
+// Location: src/services/logAnalyzerApi.ts
 
-// IMPORTANT: Change this to match your backend URL
-const API_BASE = 'http://localhost:5000/api';
+import type { LogFileStructure, LogFileContent, AnalysisResult } from '../types/logTypes';
+
+// Use relative path - Vite will proxy to backend
+const API_BASE = '/api';
 
 export const logAnalyzerApi = {
     /**
@@ -10,7 +13,8 @@ export const logAnalyzerApi = {
     async getLogStructure(pcId: number): Promise<LogFileStructure> {
         const response = await fetch(`${API_BASE}/LogAnalyzer/structure/${pcId}`);
         if (!response.ok) {
-            throw new Error(`Failed to fetch log structure: ${response.statusText}`);
+            const error = await response.json().catch(() => ({ error: response.statusText }));
+            throw new Error(error.error || `Failed to fetch log structure: ${response.statusText}`);
         }
         return response.json();
     },
@@ -25,7 +29,8 @@ export const logAnalyzerApi = {
             body: JSON.stringify({ filePath })
         });
         if (!response.ok) {
-            throw new Error(`Failed to fetch log file: ${response.statusText}`);
+            const error = await response.json().catch(() => ({ error: response.statusText }));
+            throw new Error(error.error || `Failed to fetch log file: ${response.statusText}`);
         }
         return response.json();
     },
@@ -40,7 +45,8 @@ export const logAnalyzerApi = {
             body: JSON.stringify({ filePath })
         });
         if (!response.ok) {
-            throw new Error(`Failed to analyze log file: ${response.statusText}`);
+            const error = await response.json().catch(() => ({ error: response.statusText }));
+            throw new Error(error.error || `Failed to analyze log file: ${response.statusText}`);
         }
         return response.json();
     },

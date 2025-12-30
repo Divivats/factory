@@ -1,5 +1,5 @@
-﻿// Log Analyzer Types
-// Copy this file to: src/types/logTypes.ts
+﻿// Enhanced Log Analyzer Types - Samsung Industry Grade
+// Location: src/types/logTypes.ts
 
 export interface LogFileNode {
     name: string;
@@ -34,7 +34,8 @@ export interface OperationData {
     operationName: string;
     startTime: number;
     endTime: number;
-    duration: number;
+    actualDuration: number;
+    idealDuration: number;
     sequence: number;
 }
 

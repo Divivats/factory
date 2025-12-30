@@ -1,7 +1,8 @@
-﻿// Bar Chart Component for Barrel Execution Times
+﻿// Enhanced Barrel Execution Chart with Dynamic Tick Gap Formula
 // Location: src/components/LogAnalyzer/BarrelExecutionChart.tsx
 
-import { useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import Plotly from 'plotly.js-dist-min';
 import type { BarrelExecutionData } from '../../types/logTypes';
 
 interface Props {
@@ -11,169 +12,232 @@ interface Props {
 }
 
 export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrelClick }: Props) {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const chartRef = useRef<HTMLDivElement>(null);
+    const [currentRange, setCurrentRange] = useState<[number, number] | null>(null);
 
     useEffect(() => {
-        if (!canvasRef.current || barrels.length === 0) return;
+        if (!chartRef.current || barrels.length === 0) return;
 
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        const barrelCount = barrels.length;
 
-        // Set canvas size
-        canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-        canvas.height = canvas.offsetHeight * window.devicePixelRatio;
-        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        // DYNAMIC TICK GAP FORMULA
+        // Formula: tickGap = max(1, floor(visibleBarrels / targetTickCount))
+        // targetTickCount adjusts based on screen width and zoom level
 
-        const width = canvas.offsetWidth;
-        const height = canvas.offsetHeight;
+        const calculateTickGap = (visibleStart: number, visibleEnd: number) => {
+            const visibleBarrels = visibleEnd - visibleStart;
+            const chartWidth = chartRef.current?.offsetWidth || 1000;
 
-        // Clear canvas
-        ctx.clearRect(0, 0, width, height);
+            // Target: ~60-80px per tick for optimal readability
+            const pixelsPerTick = 70;
+            const targetTickCount = Math.floor(chartWidth / pixelsPerTick);
 
-        // Calculate dimensions
-        const padding = { top: 40, right: 40, bottom: 80, left: 80 };
-        const chartWidth = width - padding.left - padding.right;
-        const chartHeight = height - padding.top - padding.bottom;
+            // Calculate gap to achieve target tick count
+            const tickGap = Math.max(1, Math.ceil(visibleBarrels / targetTickCount));
 
-        // Find max value
-        const maxValue = Math.max(...barrels.map(b => b.totalExecutionTime));
-        const yScale = chartHeight / maxValue;
+            return tickGap;
+        };
 
-        // Bar dimensions
-        const barWidth = chartWidth / barrels.length * 0.7;
-        const barSpacing = chartWidth / barrels.length;
+        // Prepare data for Plotly
+        const xData = barrels.map(b => b.barrelId);
+        const yData = barrels.map(b => b.totalExecutionTime);
 
-        // Draw Y-axis
-        ctx.strokeStyle = '#475569';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(padding.left, padding.top);
-        ctx.lineTo(padding.left, height - padding.bottom);
-        ctx.stroke();
+        // Color bars: selected barrel in primary color, others in default
+        const colors = barrels.map(b =>
+            b.barrelId === selectedBarrel ? '#38bdf8' : '#1e293b'
+        );
 
-        // Draw X-axis
-        ctx.beginPath();
-        ctx.moveTo(padding.left, height - padding.bottom);
-        ctx.lineTo(width - padding.right, height - padding.bottom);
-        ctx.stroke();
+        const trace = {
+            x: xData,
+            y: yData,
+            type: 'bar' as const,
+            marker: {
+                color: colors,
+                line: {
+                    color: barrels.map(b => b.barrelId === selectedBarrel ? '#38bdf8' : '#475569'),
+                    width: 2
+                }
+            },
+            text: yData.map(y => `${y.toFixed(0)}ms`),
+            textposition: 'outside' as const,
+            textfont: {
+                size: 11,
+                color: '#f8fafc',
+                family: 'Inter, sans-serif'
+            },
+            hovertemplate: '<b>%{x}</b><br>' +
+                'Total Execution Time: <b>%{y:.0f}ms</b><br>' +
+                '<extra></extra>',
+            hoverlabel: {
+                bgcolor: '#1e293b',
+                bordercolor: '#38bdf8',
+                font: {
+                    color: '#f8fafc',
+                    size: 13,
+                    family: 'Inter, sans-serif'
+                }
+            }
+        };
 
-        // Draw Y-axis labels and grid lines
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '12px Inter, sans-serif';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
+        // Initial tick gap calculation
+        const initialTickGap = calculateTickGap(0, barrelCount);
+        const showRangeSlider = barrelCount > 50;
 
-        const ySteps = 5;
-        for (let i = 0; i <= ySteps; i++) {
-            const value = (maxValue / ySteps) * i;
-            const y = height - padding.bottom - (chartHeight / ySteps) * i;
+        const layout = {
+            title: {
+                text: `Barrel Execution Times (${barrelCount} barrels)`,
+                font: {
+                    size: 20,
+                    color: '#f8fafc',
+                    family: 'Inter, sans-serif',
+                    weight: 700
+                },
+                x: 0.5,
+                xanchor: 'center' as const,
+                y: 0.98,
+                yanchor: 'top' as const
+            },
+            xaxis: {
+                title: {
+                    text: 'Barrel ID',
+                    font: {
+                        size: 16,
+                        color: '#f8fafc',
+                        family: 'Inter, sans-serif',
+                        weight: 600
+                    },
+                    standoff: 20
+                },
+                tickfont: {
+                    size: 11,
+                    color: '#94a3b8',
+                    family: 'JetBrains Mono, monospace'
+                },
+                // HORIZONTAL TICKS (no rotation)
+                tickangle: 0,
+                gridcolor: '#334155',
+                showgrid: false,
+                zeroline: false,
+                // Dynamic tick spacing
+                tickmode: 'linear' as const,
+                tick0: 0,
+                dtick: initialTickGap,
+                // Range slider for large datasets
+                rangeslider: showRangeSlider ? {
+                    visible: true,
+                    bgcolor: '#1e293b',
+                    bordercolor: '#475569',
+                    thickness: 0.08,
+                    yaxis: {
+                        rangemode: 'match' as const
+                    }
+                } : { visible: false },
+                automargin: true
+            },
+            yaxis: {
+                title: {
+                    text: 'Total Execution Time (ms)',
+                    font: {
+                        size: 16,
+                        color: '#f8fafc',
+                        family: 'Inter, sans-serif',
+                        weight: 600
+                    },
+                    standoff: 15
+                },
+                tickfont: {
+                    size: 12,
+                    color: '#94a3b8',
+                    family: 'JetBrains Mono, monospace'
+                },
+                gridcolor: '#334155',
+                showgrid: true,
+                zeroline: false,
+                automargin: true
+            },
+            plot_bgcolor: '#0b1121',
+            paper_bgcolor: '#0b1121',
+            margin: {
+                l: 90,
+                r: 40,
+                t: 70,
+                b: showRangeSlider ? 150 : 100,
+                pad: 10
+            },
+            hovermode: 'closest' as const,
+            hoverdistance: 50,
+            showlegend: false,
+            autosize: true
+        };
 
-            // Grid line
-            ctx.strokeStyle = '#334155';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(padding.left, y);
-            ctx.lineTo(width - padding.right, y);
-            ctx.stroke();
+        const config = {
+            responsive: true,
+            displayModeBar: true,
+            displaylogo: false,
+            modeBarButtonsToAdd: ['select2d', 'lasso2d'] as any[],
+            modeBarButtonsToRemove: ['toImage', 'sendDataToCloud'] as any[],
+            scrollZoom: true,
+            toImageButtonOptions: {
+                format: 'png',
+                filename: 'barrel_execution_times',
+                height: 1080,
+                width: 1920,
+                scale: 2
+            }
+        };
 
-            // Label
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillText(`${value.toFixed(0)}ms`, padding.left - 10, y);
-        }
+        // Create plot
+        Plotly.newPlot(chartRef.current, [trace], layout, config);
 
-        // Draw bars
-        barrels.forEach((barrel, index) => {
-            const x = padding.left + index * barSpacing + (barSpacing - barWidth) / 2;
-            const barHeight = barrel.totalExecutionTime * yScale;
-            const y = height - padding.bottom - barHeight;
-
-            // Draw bar
-            const isSelected = barrel.barrelId === selectedBarrel;
-            ctx.fillStyle = isSelected ? '#38bdf8' : '#1e293b';
-            ctx.fillRect(x, y, barWidth, barHeight);
-
-            // Draw border
-            ctx.strokeStyle = isSelected ? '#38bdf8' : '#475569';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(x, y, barWidth, barHeight);
-
-            // Draw value on top
-            ctx.fillStyle = '#f8fafc';
-            ctx.font = 'bold 11px Inter, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(`${barrel.totalExecutionTime.toFixed(0)}ms`, x + barWidth / 2, y - 5);
-
-            // Draw X-axis label
-            ctx.fillStyle = '#94a3b8';
-            ctx.font = '12px Inter, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-            ctx.save();
-            ctx.translate(x + barWidth / 2, height - padding.bottom + 10);
-            ctx.rotate(-Math.PI / 4);
-            ctx.fillText(barrel.barrelId, 0, 0);
-            ctx.restore();
+        // Add click handler
+        chartRef.current.on('plotly_click', (data: any) => {
+            const pointIndex = data.points[0].pointIndex;
+            const clickedBarrel = barrels[pointIndex];
+            onBarrelClick(clickedBarrel.barrelId);
         });
 
-        // Draw axis labels
-        ctx.fillStyle = '#f8fafc';
-        ctx.font = 'bold 14px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        // Dynamic tick adjustment on zoom/pan
+        chartRef.current.on('plotly_relayout', (eventData: any) => {
+            if (eventData['xaxis.range[0]'] !== undefined && eventData['xaxis.range[1]'] !== undefined) {
+                const visibleStart = Math.max(0, Math.floor(eventData['xaxis.range[0]']));
+                const visibleEnd = Math.min(barrelCount, Math.ceil(eventData['xaxis.range[1]']));
 
-        // Y-axis label
-        ctx.save();
-        ctx.translate(20, height / 2);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillText('Total Execution Time (ms)', 0, 0);
-        ctx.restore();
+                // Calculate new tick gap based on visible range
+                const newTickGap = calculateTickGap(visibleStart, visibleEnd);
 
-        // X-axis label
-        ctx.fillText('Barrel Number', width / 2, height - 20);
+                // Update x-axis with new tick spacing
+                Plotly.relayout(chartRef.current!, {
+                    'xaxis.dtick': newTickGap
+                });
+            }
+        });
 
-    }, [barrels, selectedBarrel]);
+        // Handle window resize
+        const handleResize = () => {
+            if (chartRef.current) {
+                Plotly.Plots.resize(chartRef.current);
+            }
+        };
 
-    const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        if (!canvasRef.current || barrels.length === 0) return;
+        window.addEventListener('resize', handleResize);
 
-        const canvas = canvasRef.current;
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-
-        const width = canvas.offsetWidth;
-        const height = canvas.offsetHeight;
-        const padding = { top: 40, right: 40, bottom: 80, left: 80 };
-        const chartWidth = width - padding.left - padding.right;
-        const barSpacing = chartWidth / barrels.length;
-        const barWidth = chartWidth / barrels.length * 0.7;
-
-        // Check if click is within chart area
-        if (x < padding.left || x > width - padding.right || y < padding.top || y > height - padding.bottom) {
-            return;
-        }
-
-        // Find clicked bar
-        const barIndex = Math.floor((x - padding.left) / barSpacing);
-        if (barIndex >= 0 && barIndex < barrels.length) {
-            onBarrelClick(barrels[barIndex].barrelId);
-        }
-    };
+        // Cleanup
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            if (chartRef.current) {
+                Plotly.purge(chartRef.current);
+            }
+        };
+    }, [barrels, selectedBarrel, onBarrelClick]);
 
     return (
-        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-            <canvas
-                ref={canvasRef}
-                onClick={handleClick}
-                style={{
-                    width: '100%',
-                    height: '100%',
-                    cursor: 'pointer',
-                    display: 'block'
-                }}
-            />
-        </div>
+        <div
+            ref={chartRef}
+            style={{
+                width: '100%',
+                height: '100%',
+                minHeight: '400px'
+            }}
+        />
     );
 }

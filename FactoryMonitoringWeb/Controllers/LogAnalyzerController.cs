@@ -1,14 +1,10 @@
-// Log Analyzer API Controller - FIXED VERSION
-// Location: Controllers/LogAnalyzerController.cs
-// FIX: Added AsNoTracking() to prevent Entity Framework caching issues
-
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace FactoryMonitoringWeb.Controllers
 {
@@ -25,141 +21,96 @@ namespace FactoryMonitoringWeb.Controllers
             _logger = logger;
         }
 
-        // GET: api/LogAnalyzer/structure/{pcId}
+        // ===================== LOG STRUCTURE =====================
         [HttpGet("structure/{pcId}")]
         public async Task<ActionResult<object>> GetLogStructure(int pcId)
         {
             try
             {
-                _logger.LogInformation($"GetLogStructure requested for PC {pcId}");
-
                 var pc = await _context.FactoryPCs.FindAsync(pcId);
                 if (pc == null)
-                {
-                    _logger.LogWarning($"PC {pcId} not found");
                     return NotFound(new { error = "PC not found" });
-                }
 
-                // Send command to agent to get log folder structure
                 var command = new AgentCommand
                 {
                     PCId = pcId,
                     CommandType = "GetLogStructure",
-                    CommandData = JsonConvert.SerializeObject(new
-                    {
-                        LogPath = pc.LogFilePath
-                    }),
+                    CommandData = JsonConvert.SerializeObject(new { LogPath = pc.LogFilePath }),
                     Status = "Pending",
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 };
 
                 _context.AgentCommands.Add(command);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"Command created: CommandId={command.CommandId}");
+                var timeout = DateTime.UtcNow.AddSeconds(45);
 
-                // Poll for result (increased timeout to 30 seconds)
-                var timeout = DateTime.Now.AddSeconds(30);
-                int pollCount = 0;
-
-                while (DateTime.Now < timeout)
+                while (DateTime.UtcNow < timeout)
                 {
-                    await Task.Delay(500);
-                    pollCount++;
+                    await Task.Delay(1000);
 
-                    // CRITICAL FIX: Use AsNoTracking() to prevent EF caching
                     var cmd = await _context.AgentCommands
                         .AsNoTracking()
                         .FirstOrDefaultAsync(c => c.CommandId == command.CommandId);
 
-                    _logger.LogInformation($"Poll #{pollCount}: Status={cmd?.Status}, HasResultData={!string.IsNullOrEmpty(cmd?.ResultData)}");
-
                     if (cmd?.Status == "Completed" && !string.IsNullOrEmpty(cmd.ResultData))
                     {
-                        _logger.LogInformation($"Command {command.CommandId} completed successfully");
-
                         var result = JsonConvert.DeserializeObject<Dictionary<string, object>>(cmd.ResultData);
                         return Ok(new
                         {
-                            pcId = pcId,
+                            pcId,
                             rootPath = pc.LogFilePath,
                             files = result?["files"]
                         });
                     }
-                    else if (cmd?.Status == "Failed")
-                    {
-                        _logger.LogWarning($"Command {command.CommandId} failed: {cmd.ErrorMessage}");
-                        return StatusCode(500, new { error = cmd.ErrorMessage ?? "Failed to get log structure" });
-                    }
+
+                    if (cmd?.Status == "Failed")
+                        return StatusCode(500, new { error = cmd.ErrorMessage });
                 }
-
-                _logger.LogWarning($"Timeout after {pollCount} polls for command {command.CommandId}");
-
-                // Check final status
-                var finalCmd = await _context.AgentCommands.AsNoTracking().FirstOrDefaultAsync(c => c.CommandId == command.CommandId);
-                _logger.LogWarning($"Final status: {finalCmd?.Status}, HasResultData: {!string.IsNullOrEmpty(finalCmd?.ResultData)}");
 
                 return StatusCode(408, new { error = "Request timeout - agent did not respond" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting log structure for PC {pcId}");
+                _logger.LogError(ex, "GetLogStructure failed for PC {pcId}", pcId);
                 return StatusCode(500, new { error = ex.Message });
             }
         }
 
-        // POST: api/LogAnalyzer/file/{pcId}
+        // ===================== FILE CONTENT =====================
         [HttpPost("file/{pcId}")]
         public async Task<ActionResult<object>> GetLogFileContent(int pcId, [FromBody] LogFileRequest request)
         {
             try
             {
-                _logger.LogInformation($"GetLogFileContent requested for PC {pcId}, File: {request.FilePath}");
-
                 var pc = await _context.FactoryPCs.FindAsync(pcId);
                 if (pc == null)
-                {
                     return NotFound(new { error = "PC not found" });
-                }
 
-                // Send command to agent to get file content
                 var command = new AgentCommand
                 {
                     PCId = pcId,
                     CommandType = "GetLogFileContent",
-                    CommandData = JsonConvert.SerializeObject(new
-                    {
-                        FilePath = request.FilePath
-                    }),
+                    CommandData = JsonConvert.SerializeObject(new { FilePath = request.FilePath }),
                     Status = "Pending",
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 };
 
                 _context.AgentCommands.Add(command);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"Command created: CommandId={command.CommandId}");
+                var timeout = DateTime.UtcNow.AddSeconds(60);
 
-                // Poll for result (increased timeout to 30 seconds for large files)
-                var timeout = DateTime.Now.AddSeconds(30);
-                int pollCount = 0;
-
-                while (DateTime.Now < timeout)
+                while (DateTime.UtcNow < timeout)
                 {
-                    await Task.Delay(500);
-                    pollCount++;
+                    await Task.Delay(1000);
 
-                    // CRITICAL FIX: Use AsNoTracking() to prevent EF caching
                     var cmd = await _context.AgentCommands
                         .AsNoTracking()
                         .FirstOrDefaultAsync(c => c.CommandId == command.CommandId);
 
-                    _logger.LogInformation($"Poll #{pollCount}: Status={cmd?.Status}");
-
                     if (cmd?.Status == "Completed" && !string.IsNullOrEmpty(cmd.ResultData))
                     {
-                        _logger.LogInformation($"Command {command.CommandId} completed successfully");
-
                         var result = JsonConvert.DeserializeObject<Dictionary<string, object>>(cmd.ResultData);
                         return Ok(new
                         {
@@ -170,60 +121,49 @@ namespace FactoryMonitoringWeb.Controllers
                             encoding = result?["encoding"] ?? "UTF-8"
                         });
                     }
-                    else if (cmd?.Status == "Failed")
-                    {
-                        _logger.LogWarning($"Command {command.CommandId} failed");
-                        return StatusCode(500, new { error = cmd.ErrorMessage ?? "Failed to read file" });
-                    }
+
+                    if (cmd?.Status == "Failed")
+                        return StatusCode(500, new { error = cmd.ErrorMessage });
                 }
 
-                _logger.LogWarning($"Timeout after {pollCount} polls for command {command.CommandId}");
                 return StatusCode(408, new { error = "Request timeout - agent did not respond" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting log file content for PC {pcId}");
+                _logger.LogError(ex, "GetLogFileContent failed for PC {pcId}", pcId);
                 return StatusCode(500, new { error = ex.Message });
             }
         }
 
-        // POST: api/LogAnalyzer/analyze/{pcId}
+        // ===================== ANALYZE =====================
         [HttpPost("analyze/{pcId}")]
         public async Task<ActionResult<object>> AnalyzeLogFile(int pcId, [FromBody] LogFileRequest request)
         {
             try
             {
-                _logger.LogInformation($"AnalyzeLogFile requested for PC {pcId}, File: {request.FilePath}");
-
-                // First, get the file content
                 var pc = await _context.FactoryPCs.FindAsync(pcId);
                 if (pc == null)
-                {
                     return NotFound(new { error = "PC not found" });
-                }
 
-                // Send command to get file content
                 var command = new AgentCommand
                 {
                     PCId = pcId,
                     CommandType = "GetLogFileContent",
                     CommandData = JsonConvert.SerializeObject(new { FilePath = request.FilePath }),
                     Status = "Pending",
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 };
 
                 _context.AgentCommands.Add(command);
                 await _context.SaveChangesAsync();
 
-                // Poll for result
-                var timeout = DateTime.Now.AddSeconds(30);
+                var timeout = DateTime.UtcNow.AddSeconds(60);
                 string? fileContent = null;
 
-                while (DateTime.Now < timeout)
+                while (DateTime.UtcNow < timeout)
                 {
-                    await Task.Delay(500);
+                    await Task.Delay(1000);
 
-                    // CRITICAL FIX: Use AsNoTracking()
                     var cmd = await _context.AgentCommands
                         .AsNoTracking()
                         .FirstOrDefaultAsync(c => c.CommandId == command.CommandId);
@@ -234,65 +174,52 @@ namespace FactoryMonitoringWeb.Controllers
                         fileContent = result?["content"]?.ToString();
                         break;
                     }
-                    else if (cmd?.Status == "Failed")
-                    {
-                        return StatusCode(500, new { error = "Failed to read file for analysis" });
-                    }
+
+                    if (cmd?.Status == "Failed")
+                        return StatusCode(500, new { error = "Failed to read file" });
                 }
 
                 if (fileContent == null)
-                {
-                    _logger.LogWarning("Timeout reading file for analysis");
                     return StatusCode(408, new { error = "Timeout reading file" });
-                }
 
-                // Parse the log file
-                var analysisResult = ParseLogFile(fileContent);
-
-                _logger.LogInformation("Log file analyzed successfully");
-                return Ok(analysisResult);
+                // REAL PARSING HAPPENS HERE
+                return Ok(ParseEnhancedLogFile(fileContent));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error analyzing log file for PC {pcId}");
+                _logger.LogError(ex, "AnalyzeLogFile failed for PC {pcId}", pcId);
                 return StatusCode(500, new { error = ex.Message });
             }
         }
 
-        // GET: api/LogAnalyzer/download/{pcId}
-        [HttpGet("download/{pcId}")]
-        public async Task<IActionResult> DownloadLogFile(int pcId, [FromQuery] string filePath)
+        // ===================== DOWNLOAD =====================
+        [HttpPost("download/{pcId}")]
+        public async Task<IActionResult> DownloadLogFile(int pcId, [FromBody] LogFileRequest request)
         {
             try
             {
                 var pc = await _context.FactoryPCs.FindAsync(pcId);
                 if (pc == null)
-                {
                     return NotFound();
-                }
 
-                var request = new LogFileRequest { FilePath = filePath };
-
-                // Send command to get file content
                 var command = new AgentCommand
                 {
                     PCId = pcId,
                     CommandType = "GetLogFileContent",
                     CommandData = JsonConvert.SerializeObject(new { FilePath = request.FilePath }),
                     Status = "Pending",
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 };
 
                 _context.AgentCommands.Add(command);
                 await _context.SaveChangesAsync();
 
-                // Poll for result
-                var timeout = DateTime.Now.AddSeconds(30);
-                while (DateTime.Now < timeout)
-                {
-                    await Task.Delay(500);
+                var timeout = DateTime.UtcNow.AddSeconds(60);
 
-                    // CRITICAL FIX: Use AsNoTracking()
+                while (DateTime.UtcNow < timeout)
+                {
+                    await Task.Delay(1000);
+
                     var cmd = await _context.AgentCommands
                         .AsNoTracking()
                         .FirstOrDefaultAsync(c => c.CommandId == command.CommandId);
@@ -300,147 +227,123 @@ namespace FactoryMonitoringWeb.Controllers
                     if (cmd?.Status == "Completed" && !string.IsNullOrEmpty(cmd.ResultData))
                     {
                         var result = JsonConvert.DeserializeObject<Dictionary<string, object>>(cmd.ResultData);
-                        var content = result?["content"]?.ToString() ?? "";
-                        var bytes = Encoding.UTF8.GetBytes(content);
+                        var bytes = Encoding.UTF8.GetBytes(result?["content"]?.ToString() ?? "");
                         return File(bytes, "text/plain", Path.GetFileName(request.FilePath));
                     }
-                    else if (cmd?.Status == "Failed")
-                    {
+
+                    if (cmd?.Status == "Failed")
                         return StatusCode(500);
-                    }
                 }
 
                 return StatusCode(408);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error downloading log file for PC {pcId}");
+                _logger.LogError(ex, "DownloadLogFile failed for PC {pcId}", pcId);
                 return StatusCode(500);
             }
         }
 
-        // Helper method to parse log file and extract barrel data
-        private object ParseLogFile(string content)
+        // ===================== PARSER (WORKING) =====================
+        private object ParseEnhancedLogFile(string content)
         {
-            var barrels = new List<object>();
             var barrelMap = new Dictionary<string, BarrelData>();
+            var startMap = new Dictionary<string, Dictionary<string, int>>();
 
             var lines = content.Split('\n');
-            bool headerSkipped = false;
 
             foreach (var line in lines)
             {
                 if (string.IsNullOrWhiteSpace(line)) continue;
+                if (line.StartsWith("SEM_LOG_VERSION") || line.StartsWith("DateTime")) continue;
 
-                // Skip header
-                if (line.StartsWith("SEM_LOG_VERSION") || line.StartsWith("Datetime\t"))
+                var columns = line.Split('\t');
+                if (columns.Length < 11) continue;
+
+                var scope = columns[7].Trim();
+                var operationName = columns[8].Trim();
+                var status = columns[9].Trim();
+                var dataField = columns[10].Trim();
+
+                JObject json;
+                try { json = JObject.Parse(dataField); }
+                catch { continue; }
+
+                var barrelId = json["barrelId"]?.ToString();
+                if (string.IsNullOrEmpty(barrelId)) continue;
+
+                var opKey = $"{scope}_{operationName}";
+
+                if (!barrelMap.ContainsKey(barrelId))
                 {
-                    headerSkipped = true;
-                    continue;
+                    barrelMap[barrelId] = new BarrelData { BarrelId = barrelId };
+                    startMap[barrelId] = new Dictionary<string, int>();
                 }
 
-                if (!headerSkipped) continue;
-
-                try
+                // ---------- START ----------
+                if (status == "START")
                 {
-                    var columns = line.Split('\t');
-                    if (columns.Length < 11) continue;
-
-                    var datetime = columns[0].Trim();
-                    var scope = columns[7].Trim();
-                    var operationName = columns[8].Trim();
-                    var operationStatus = columns[9].Trim();
-                    var data = columns[10].Trim();
-
-                    var barrelMatch = Regex.Match(data, @"Barrel[:\s]*\((\d+),(\d+)\)");
-                    if (!barrelMatch.Success)
+                    var startTs = json["startTs"]?.Value<int>();
+                    if (startTs != null)
                     {
-                        barrelMatch = Regex.Match(data, @"BarrelID\s*\[(\d+),(\d+)\]");
+                        startMap[barrelId][opKey] = startTs.Value;
                     }
+                }
 
-                    if (!barrelMatch.Success) continue;
+                // ---------- END ----------
+                if (status == "END")
+                {
+                    if (!startMap[barrelId].ContainsKey(opKey)) continue;
 
-                    var barrelId = $"({barrelMatch.Groups[1].Value},{barrelMatch.Groups[2].Value})";
+                    var startTs = startMap[barrelId][opKey];
+                    var endTs = json["endTs"]?.Value<int>();
+                    if (endTs == null || endTs < startTs) continue;
 
-                    if (operationStatus != "END") continue;
+                    var barrel = barrelMap[barrelId];
 
-                    var timingMatch = Regex.Match(data, @"(\d+)\s*ms");
-                    if (!timingMatch.Success) continue;
-
-                    var duration = int.Parse(timingMatch.Groups[1].Value);
-                    var fullOperationName = string.IsNullOrWhiteSpace(scope) ? operationName : $"{scope}_{operationName}";
-
-                    if (!barrelMap.ContainsKey(barrelId))
+                    barrel.Operations.Add(new OperationData
                     {
-                        barrelMap[barrelId] = new BarrelData { BarrelId = barrelId };
-                    }
-
-                    DateTime.TryParse(datetime, out var logTime);
-                    var timestamp = (int)(logTime - DateTime.MinValue).TotalMilliseconds;
-
-                    barrelMap[barrelId].Operations.Add(new OperationData
-                    {
-                        OperationName = fullOperationName,
-                        StartTime = timestamp - duration,
-                        EndTime = timestamp,
-                        Duration = duration,
-                        Sequence = barrelMap[barrelId].Operations.Count + 1
+                        OperationName = opKey,
+                        StartTime = startTs,
+                        EndTime = endTs.Value,
+                        ActualDuration = endTs.Value - startTs,
+                        IdealDuration = json["idealMs"]?.Value<int>() ?? 0,
+                        Sequence = barrel.Operations.Count + 1
                     });
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning($"Failed to parse log line: {ex.Message}");
-                    continue;
+
+                    startMap[barrelId].Remove(opKey);
                 }
             }
 
-            // Build result
-            foreach (var kvp in barrelMap)
+            // Calculate total execution time correctly
+            foreach (var barrel in barrelMap.Values)
             {
-                var barrel = kvp.Value;
-                barrel.TotalExecutionTime = barrel.Operations.Sum(op => op.Duration);
-
-                barrels.Add(new
+                if (barrel.Operations.Count > 0)
                 {
-                    barrelId = barrel.BarrelId,
-                    totalExecutionTime = barrel.TotalExecutionTime,
-                    operations = barrel.Operations.Select(op => new
-                    {
-                        operationName = op.OperationName,
-                        startTime = op.StartTime,
-                        endTime = op.EndTime,
-                        duration = op.Duration,
-                        sequence = op.Sequence
-                    }).ToList()
-                });
+                    barrel.TotalExecutionTime =
+                        barrel.Operations.Max(o => o.EndTime) -
+                        barrel.Operations.Min(o => o.StartTime);
+                }
             }
-
-            // Calculate summary
-            var totalBarrels = barrels.Count;
-            var avgTime = barrels.Any() ? barrels.Average(b => ((dynamic)b).totalExecutionTime) : 0;
-            var minTime = barrels.Any() ? barrels.Min(b => ((dynamic)b).totalExecutionTime) : 0;
-            var maxTime = barrels.Any() ? barrels.Max(b => ((dynamic)b).totalExecutionTime) : 0;
 
             return new
             {
-                barrels = barrels,
-                summary = new
+                barrels = barrelMap.Values.Select(b => new
                 {
-                    totalBarrels = totalBarrels,
-                    averageExecutionTime = avgTime,
-                    minExecutionTime = minTime,
-                    maxExecutionTime = maxTime
-                }
+                    barrelId = b.BarrelId,
+                    totalExecutionTime = b.TotalExecutionTime,
+                    operations = b.Operations
+                }).ToList()
             };
         }
     }
 
-    // Helper classes
+    // ===================== SUPPORT TYPES =====================
     internal class BarrelData
     {
         public string BarrelId { get; set; } = "";
         public int TotalExecutionTime { get; set; }
-        public List<OperationData> Operations { get; set; } = new List<OperationData>();
+        public List<OperationData> Operations { get; set; } = new();
     }
 
     internal class OperationData
@@ -448,11 +351,11 @@ namespace FactoryMonitoringWeb.Controllers
         public string OperationName { get; set; } = "";
         public int StartTime { get; set; }
         public int EndTime { get; set; }
-        public int Duration { get; set; }
+        public int ActualDuration { get; set; }
+        public int IdealDuration { get; set; }
         public int Sequence { get; set; }
     }
 
-    // Request DTOs
     public class LogFileRequest
     {
         public string FilePath { get; set; } = "";
