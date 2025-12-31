@@ -17,6 +17,7 @@ export interface FactoryPC {
 
 export interface LineGroup {
   lineNumber: number
+  targetModelName: string | null
   pcs: FactoryPC[]
 }
 
@@ -63,14 +64,14 @@ export interface Stats {
 
 export interface ApplyModelRequest {
   modelFileId: number
-  targetType: 'all' | 'version' | 'line' | 'lineandversion' | 'selected'
-  version?: string
+  targetType: 'all' | 'version' | 'line' | 'selected' | 'lineandversion'
   lineNumber?: number
+  version?: string
   selectedPCIds?: number[]
   applyImmediately: boolean
   checkOnly?: boolean
   forceOverwrite?: boolean
-  modelName?: string
+  modelName?: string // For local-only models
 }
 
 export interface LineModelOption {

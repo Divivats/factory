@@ -187,11 +187,19 @@ void AgentCore::WorkerLoop() {
 
                 if (!commands.empty()) {
                     commandExecutor_->ProcessCommands(commands);
+                    
+                    // IMMEDIATE SYNC after command execution
+                    // Skip heartbeat delay - update database right away
+                    configService_->SyncConfigToServer();
+                    logService_->SyncLogsToServer();
+                    modelService_->SyncModelsToServer();
                 }
-
-                configService_->SyncConfigToServer();
-                logService_->SyncLogsToServer();
-                modelService_->SyncModelsToServer();
+                else {
+                    // Normal periodic sync (no commands)
+                    configService_->SyncConfigToServer();
+                    logService_->SyncLogsToServer();
+                    modelService_->SyncModelsToServer();
+                }
             }
         }
 

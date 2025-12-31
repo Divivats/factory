@@ -154,7 +154,7 @@ bool ModelService::DeleteModel(const std::string& modelName) {
     return FileUtils::DeleteFolder(modelPath);
 }
 
-bool ModelService::DownloadModelFromAgent(const std::string& modelName) {
+bool ModelService::UploadModelToLibrary(const std::string& modelName, const std::string& uploadUrl) {
     std::string modelPath = settings_->modelFolderPath + "\\" + modelName;
 
     if (!FileUtils::FolderExists(modelPath)) {
@@ -166,17 +166,17 @@ bool ModelService::DownloadModelFromAgent(const std::string& modelName) {
 
     std::string tempZipPath = tempDir + "\\" + modelName + AgentConstants::ZIP_EXTENSION;
 
+    // Use existing ZipUtils
     if (ZipUtils::CreateZip(modelPath, tempZipPath)) {
         if (FileUtils::FileExists(tempZipPath)) {
             json response;
-            bool success = httpClient_->UploadFile(AgentConstants::ENDPOINT_UPLOAD_MODEL,
-                tempZipPath, modelName, response);
+            // Use the specific uploadUrl provided by server (converted to wstring)
+            std::wstring wUploadUrl(uploadUrl.begin(), uploadUrl.end());
+            bool success = httpClient_->UploadFile(wUploadUrl, tempZipPath, "file", response);
 
             FileUtils::DeleteFile(tempZipPath);
 
-            if (success && response.contains("success") && response["success"].get<bool>()) {
-                return true;
-            }
+            return success;
         }
     }
 

@@ -1,4 +1,4 @@
-﻿import { Monitor, Wifi, WifiOff, Play, Square, Cpu } from 'lucide-react'
+﻿import { Cpu, Circle, Zap } from 'lucide-react'
 import type { FactoryPC } from '../types'
 
 interface Props {
@@ -7,73 +7,190 @@ interface Props {
 }
 
 export default function PCCard({ pc, onClick }: Props) {
+    // Determine overall status color
     const getStatusColor = () => {
         if (!pc.isOnline) return 'var(--danger)'
-        return pc.isApplicationRunning ? 'var(--success)' : 'var(--warning)'
+        return 'var(--success)'
+    }
+
+    const getStatusGlow = () => {
+        if (!pc.isOnline) return 'rgba(248, 113, 113, 0.15)'
+        return 'rgba(52, 211, 153, 0.15)'
     }
 
     return (
         <div
-            className="card"
+            className="pc-card-aesthetic"
             onClick={() => onClick(pc)}
-            style={{ borderLeft: `3px solid ${getStatusColor()}` }}
+            style={{
+                position: 'relative',
+                width: '90px',
+                background: `linear-gradient(135deg, ${getStatusGlow()}, var(--bg-card))`,
+                border: `1px solid ${getStatusColor()}`,
+                borderRadius: '10px',
+                padding: '0.5rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.3rem',
+                boxShadow: `0 2px 8px ${getStatusGlow()}`,
+                overflow: 'hidden'
+            }}
+            onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'
+                e.currentTarget.style.boxShadow = `0 8px 20px ${getStatusGlow()}, 0 0 0 2px ${getStatusColor()}`
+            }}
+            onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                e.currentTarget.style.boxShadow = `0 2px 8px ${getStatusGlow()}`
+            }}
         >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.25rem' }}>
-                        <Cpu size={14} color="var(--primary)" style={{ flexShrink: 0 }} />
-                        <h3 style={{ fontSize: '0.875rem', fontWeight: 700, margin: 0, letterSpacing: '-0.01em' }}>PC-{pc.pcNumber}</h3>
-                    </div>
-                    <div className="text-mono" style={{ fontSize: '0.7rem', color: 'var(--text-dim)', lineHeight: 1.3 }}>{pc.ipAddress}</div>
-                </div>
+            {/* Animated status pulse ring */}
+            <div style={{
+                position: 'absolute',
+                top: '-20px',
+                right: '-20px',
+                width: '50px',
+                height: '50px',
+                borderRadius: '50%',
+                background: `radial-gradient(circle, ${getStatusColor()}, transparent 70%)`,
+                opacity: 0.15,
+                animation: 'pulse-glow 2s ease-in-out infinite'
+            }} />
+
+            {/* PC Icon with gradient background */}
+            <div style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: '0.2rem'
+            }}>
                 <div style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '8px',
-                    background: pc.isOnline ? 'var(--success-bg)' : 'var(--danger-bg)',
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: `linear-gradient(135deg, ${getStatusGlow()}, transparent)`,
+                    border: `2px solid ${getStatusColor()}`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    flexShrink: 0
+                    position: 'relative',
+                    boxShadow: `0 4px 12px ${getStatusGlow()}`
                 }}>
-                    <Monitor size={16} color={pc.isOnline ? 'var(--success)' : 'var(--danger)'} />
+                    <Cpu size={20} strokeWidth={2.5} color={getStatusColor()} />
+
+                    {/* Status indicator dot */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '-3px',
+                        right: '-3px',
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: getStatusColor(),
+                        border: '2px solid var(--bg-card)',
+                        boxShadow: `0 0 8px ${getStatusColor()}`,
+                        animation: pc.isOnline ? 'pulse-dot 2s ease-in-out infinite' : 'none'
+                    }} />
                 </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.625rem', flexWrap: 'wrap' }}>
-                <span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'}`} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    {pc.isOnline ? <Wifi size={9} strokeWidth={2.5} /> : <WifiOff size={9} strokeWidth={2.5} />}
-                    <span>{pc.isOnline ? 'Online' : 'Offline'}</span>
-                </span>
-                <span className={`badge ${pc.isApplicationRunning ? 'badge-success' : 'badge-neutral'}`} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    {pc.isApplicationRunning ? <Play size={8} strokeWidth={3} fill="currentColor" /> : <Square size={8} strokeWidth={2.5} />}
-                    <span>{pc.isApplicationRunning ? 'Active' : 'Idle'}</span>
-                </span>
-            </div>
-
+            {/* PC Number */}
             <div style={{
-                borderTop: '1px solid var(--border)',
-                paddingTop: '0.5rem',
-                background: 'linear-gradient(to bottom, transparent, var(--bg-hover))',
-                marginLeft: '-0.75rem',
-                marginRight: '-0.75rem',
-                marginBottom: '-0.75rem',
-                padding: '0.5rem 0.75rem 0.625rem'
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                color: 'var(--text-main)',
+                textAlign: 'center',
+                letterSpacing: '-0.02em',
+                lineHeight: 1
             }}>
-                <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem', fontWeight: 600 }}>
-                    Current Model
-                </div>
-                <div className="text-mono" style={{
-                    color: 'var(--text-main)',
-                    fontSize: '0.75rem',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    fontWeight: 500
+                PC-{pc.pcNumber}
+            </div>
+
+            {/* IP Address */}
+            <div className="text-mono" style={{
+                fontSize: '0.55rem',
+                color: 'var(--text-dim)',
+                textAlign: 'center',
+                letterSpacing: '-0.03em',
+                lineHeight: 1,
+                marginBottom: '0.2rem'
+            }}>
+                {pc.ipAddress}
+            </div>
+
+            {/* Status Pills - Agent & App */}
+            <div style={{
+                display: 'flex',
+                gap: '0.2rem',
+                justifyContent: 'center'
+            }}>
+                {/* Agent Status */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.15rem',
+                    padding: '0.12rem 0.3rem',
+                    borderRadius: '10px',
+                    background: pc.isOnline ? 'var(--success-bg)' : 'var(--danger-bg)',
+                    border: `1px solid ${pc.isOnline ? 'var(--success)' : 'var(--danger)'}`,
+                    fontSize: '0.48rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.02em'
                 }}>
-                    {pc.currentModel?.modelName || 'No model loaded'}
+                    <Circle
+                        size={4}
+                        fill={pc.isOnline ? 'var(--success)' : 'var(--danger)'}
+                        strokeWidth={0}
+                    />
+                    <span style={{ color: pc.isOnline ? 'var(--success)' : 'var(--danger)' }}>AG</span>
+                </div>
+
+                {/* App Status */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.15rem',
+                    padding: '0.12rem 0.3rem',
+                    borderRadius: '10px',
+                    background: pc.isApplicationRunning ? 'var(--success-bg)' : 'rgba(100, 116, 139, 0.1)',
+                    border: `1px solid ${pc.isApplicationRunning ? 'var(--success)' : 'var(--border)'}`,
+                    fontSize: '0.48rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.02em'
+                }}>
+                    <Zap
+                        size={4}
+                        fill={pc.isApplicationRunning ? 'var(--success)' : 'var(--text-dim)'}
+                        strokeWidth={0}
+                    />
+                    <span style={{ color: pc.isApplicationRunning ? 'var(--success)' : 'var(--text-dim)' }}>AP</span>
                 </div>
             </div>
+
+            <style>{`
+                @keyframes pulse-glow {
+                    0%, 100% {
+                        opacity: 0.15;
+                        transform: scale(1);
+                    }
+                    50% {
+                        opacity: 0.3;
+                        transform: scale(1.1);
+                    }
+                }
+
+                @keyframes pulse-dot {
+                    0%, 100% {
+                        opacity: 1;
+                    }
+                    50% {
+                        opacity: 0.6;
+                    }
+                }
+            `}</style>
         </div>
     )
 }

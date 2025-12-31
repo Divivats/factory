@@ -67,18 +67,20 @@ bool ConfigManager::WriteConfigFile(const std::string& filePath, const std::stri
 }
 
 std::string ConfigManager::GetCurrentModel(const std::string& configContent) {
-    std::regex modelRegex(R"(\[current_model\]\s*model\s*=\s*([^\s\r\n]+))");
+    // Capture everything after = until newline, then we trim it.
+    std::regex modelRegex(R"(\[current_model\]\s*model\s*=\s*([^\r\n]+))");
     std::smatch match;
 
     if (std::regex_search(configContent, match, modelRegex)) {
-        return match[1].str();
+        return StringUtils::Trim(match[1].str());
     }
 
     return "";
 }
 
 bool ConfigManager::UpdateCurrentModel(std::string& configContent, const std::string& modelName, const std::string& modelPath) {
-    std::regex modelRegex(R"((\[current_model\]\s*model\s*=\s*)(.*))");
+    // Replace the entire value line
+    std::regex modelRegex(R"((\[current_model\]\s*model\s*=\s*)([^\r\n]+))");
     configContent = std::regex_replace(configContent, modelRegex, "$1" + modelName);
 
     std::regex pathRegex(R"((model_path\s*=\s*)([^\r\n]+))");

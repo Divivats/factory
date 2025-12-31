@@ -101,11 +101,15 @@ namespace FactoryMonitoringWeb.Controllers
                     })
                     .ToListAsync();
 
-                // Group by line
+                // Get target models for all lines
+                var targetModels = await _context.LineTargetModels.ToDictionaryAsync(ltm => ltm.LineNumber, ltm => ltm.TargetModelName);
+
+                // Group by line and include target model
                 var grouped = pcs.GroupBy(p => p.LineNumber)
                     .Select(g => new
                     {
                         LineNumber = g.Key,
+                        TargetModelName = targetModels.ContainsKey(g.Key) ? targetModels[g.Key] : null,
                         Pcs = g.ToList()  // Changed from PCs to Pcs (will become "pcs" in camelCase JSON)
                     })
                     .OrderBy(g => g.LineNumber)
