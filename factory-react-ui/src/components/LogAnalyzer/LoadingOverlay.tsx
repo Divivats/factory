@@ -1,255 +1,174 @@
-﻿// Loading Overlay Component - Engaging Animation
+﻿// Loading Overlay Component - Slower & Smooth Connected Pistons
 // Location: src/components/LogAnalyzer/LoadingOverlay.tsx
 
-import { Loader2, Zap } from 'lucide-react';
+import React from 'react';
 
 interface Props {
     message?: string;
     submessage?: string;
 }
 
-export default function LoadingOverlay({ message = 'Loading...', submessage }: Props) {
+export default function LoadingOverlay({ message = 'LOADING...', submessage }: Props) {
+    const pegCount = 12;
+    const radius = 85;
+    const pegSize = 32;
+
+    // CONFIG: Animation Speed
+    // Increased duration for a "somewhat slow", relaxed mechanical feel
+    const ANIMATION_DURATION = '2.2s';
+    const STAGGER_DELAY = 0.18; // Increased delay to match the slower speed
+
+    // Helper to generate the "Solid Column" shadow stack
+    // The cylinder lifts 20px, so we need ~20 layers of shadow to bridge the gap perfectly.
+    const generateColumnShadow = (color: string) => {
+        let shadow = '';
+        for (let i = 1; i <= 20; i++) {
+            shadow += `0px ${i}px 0px ${color}${i === 20 ? '' : ','}`;
+        }
+        return shadow;
+    };
+
+    const cylinderBodyColor = '#3b5cb8'; // Darker blue for the sides
+
     return (
         <div
             style={{
                 position: 'fixed',
                 inset: 0,
-                background: 'rgba(11, 17, 33, 0.95)',
-                backdropFilter: 'blur(10px)',
+                background: '#23242a',
                 zIndex: 9999,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                animation: 'fadeIn 0.3s ease-out'
+                animation: 'fadeIn 0.5s ease-out', // Slower fade in too
+                fontFamily: 'system-ui, -apple-system, sans-serif',
             }}
         >
+            {/* The Tray - Tilted 15 degrees */}
             <div
                 style={{
-                    background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(56, 189, 248, 0.1) 100%)',
-                    border: '2px solid var(--primary)',
-                    borderRadius: 'var(--radius-lg)',
-                    padding: '3rem 5rem',
-                    textAlign: 'center',
-                    boxShadow: '0 25px 80px rgba(56, 189, 248, 0.3), 0 0 100px rgba(56, 189, 248, 0.1)',
-                    animation: 'scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                     position: 'relative',
-                    overflow: 'hidden'
+                    width: '260px',
+                    height: '260px',
+                    borderRadius: '50%',
+                    background: '#2b2b2b',
+                    // The concave dish look
+                    boxShadow: 'inset 5px 5px 15px rgba(0,0,0,0.5), inset -5px -5px 15px rgba(255,255,255,0.05)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    // Tilted slightly to show the piston sides
+                    transform: 'rotateX(15deg)',
+                    transformStyle: 'preserve-3d'
                 }}
             >
-                {/* Animated Background Effect */}
-                <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.1) 0%, transparent 70%)',
-                    animation: 'pulse 2s ease-in-out infinite'
-                }} />
+                {/* 1. The Piston Pegs */}
+                {[...Array(pegCount)].map((_, i) => {
+                    const angle = (i * 360) / pegCount;
+                    const radian = (angle * Math.PI) / 180;
+                    const x = Math.cos(radian - Math.PI / 2) * radius;
+                    const y = Math.sin(radian - Math.PI / 2) * radius;
 
-                {/* Orbiting Circles */}
-                <div style={{ position: 'relative', marginBottom: '2rem' }}>
-                    <div style={{
-                        width: '120px',
-                        height: '120px',
-                        margin: '0 auto',
-                        position: 'relative'
-                    }}>
-                        {/* Center Spinner */}
-                        <div style={{
-                            position: 'absolute',
-                            inset: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            animation: 'spin 1s linear infinite'
-                        }}>
-                            <Loader2 size={64} color="var(--primary)" strokeWidth={2} />
-                        </div>
-
-                        {/* Orbiting Dots */}
-                        {[0, 1, 2, 3].map(i => (
-                            <div
-                                key={i}
-                                style={{
-                                    position: 'absolute',
-                                    width: '12px',
-                                    height: '12px',
-                                    borderRadius: '50%',
-                                    background: 'var(--primary)',
-                                    boxShadow: '0 0 20px var(--primary)',
-                                    top: '50%',
-                                    left: '50%',
-                                    marginTop: '-6px',
-                                    marginLeft: '-6px',
-                                    animation: `orbit 2s linear infinite`,
-                                    animationDelay: `${i * 0.5}s`,
-                                    transformOrigin: '6px 6px'
-                                }}
-                            />
-                        ))}
-                    </div>
-
-                    {/* Lightning Bolt Accent */}
-                    <div style={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        animation: 'flash 1.5s ease-in-out infinite'
-                    }}>
-                        <Zap size={32} color="var(--primary)" fill="var(--primary)" />
-                    </div>
-                </div>
-
-                {/* Message */}
-                <div style={{
-                    fontSize: '1.5rem',
-                    fontWeight: 700,
-                    color: 'var(--text-main)',
-                    marginBottom: submessage ? '0.75rem' : 0,
-                    background: 'linear-gradient(90deg, var(--primary), var(--text-main))',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    animation: 'shimmer 2s ease-in-out infinite'
-                }}>
-                    {message}
-                </div>
-
-                {/* Submessage */}
-                {submessage && (
-                    <div style={{
-                        fontSize: '1rem',
-                        color: 'var(--text-dim)',
-                        marginTop: '0.75rem'
-                    }}>
-                        {submessage}
-                    </div>
-                )}
-
-                {/* Animated Progress Dots */}
-                <div style={{
-                    marginTop: '2rem',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    gap: '0.75rem'
-                }}>
-                    {[0, 1, 2, 3, 4].map(i => (
+                    return (
                         <div
                             key={i}
                             style={{
-                                width: '10px',
-                                height: '10px',
-                                borderRadius: '50%',
-                                background: 'var(--primary)',
-                                boxShadow: '0 0 15px var(--primary)',
-                                animation: `bounce 1.4s ease-in-out ${i * 0.15}s infinite`
+                                position: 'absolute',
+                                left: '50%',
+                                top: '50%',
+                                width: `${pegSize}px`,
+                                height: `${pegSize}px`,
+                                // Position on the tray
+                                transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
                             }}
-                        />
-                    ))}
-                </div>
+                        >
+                            <div
+                                style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    borderRadius: '50%',
+                                    // Default: Dark Hole
+                                    background: '#2b2b2b',
+                                    boxShadow: 'inset 2px 2px 5px #181818, inset -2px -2px 5px #3e3e3e',
+                                    // The Piston Animation
+                                    animation: `pistonPump ${ANIMATION_DURATION} ease-in-out infinite`,
+                                    animationDelay: `${i * STAGGER_DELAY}s`,
+                                }}
+                            />
+                        </div>
+                    );
+                })}
 
-                {/* Progress Bar */}
+                {/* 2. Center Text - Counter-rotated to stand up straight */}
                 <div style={{
-                    marginTop: '2rem',
-                    height: '4px',
-                    background: 'rgba(56, 189, 248, 0.2)',
-                    borderRadius: '2px',
-                    overflow: 'hidden',
-                    width: '250px',
-                    margin: '2rem auto 0'
+                    zIndex: 10,
+                    textAlign: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    // Counter-rotate so text faces user directly
+                    transform: 'rotateX(-15deg)'
                 }}>
                     <div style={{
-                        height: '100%',
-                        background: 'linear-gradient(90deg, var(--primary), #60a5fa)',
-                        borderRadius: '2px',
-                        animation: 'progress 1.5s ease-in-out infinite',
-                        boxShadow: '0 0 20px var(--primary)'
-                    }} />
+                        color: '#eeeeee',
+                        fontSize: '14px',
+                        letterSpacing: '3px',
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        opacity: 0.9,
+                        textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+                    }}>
+                        {message}
+                    </div>
+                    {submessage && (
+                        <div style={{
+                            color: '#888888',
+                            fontSize: '12px',
+                            marginTop: '6px',
+                            fontWeight: '400'
+                        }}>
+                            {submessage}
+                        </div>
+                    )}
                 </div>
             </div>
 
+            {/* CSS Keyframes */}
             <style>{`
                 @keyframes fadeIn {
                     from { opacity: 0; }
                     to { opacity: 1; }
                 }
 
-                @keyframes scaleIn {
-                    from {
-                        opacity: 0;
-                        transform: scale(0.8);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
-                }
-
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-
-                @keyframes orbit {
-                    0% { 
-                        transform: rotate(0deg) translateX(60px) rotate(0deg);
-                        opacity: 0;
-                    }
-                    50% {
-                        opacity: 1;
-                    }
-                    100% { 
-                        transform: rotate(360deg) translateX(60px) rotate(-360deg);
-                        opacity: 0;
-                    }
-                }
-
-                @keyframes bounce {
-                    0%, 80%, 100% {
-                        transform: scale(0.6) translateY(0);
-                        opacity: 0.4;
-                    }
-                    40% {
-                        transform: scale(1.2) translateY(-20px);
-                        opacity: 1;
-                    }
-                }
-
-                @keyframes pulse {
-                    0%, 100% {
-                        transform: scale(1);
-                        opacity: 0.5;
-                    }
-                    50% {
-                        transform: scale(1.1);
-                        opacity: 0.8;
-                    }
-                }
-
-                @keyframes shimmer {
+                @keyframes pistonPump {
                     0% {
-                        background-position: -200% center;
+                        /* DOWN: Inside the hole */
+                        transform: translateY(0px);
+                        background-color: #2b2b2b;
+                        /* Inner shadow = Hole */
+                        box-shadow: inset 2px 2px 5px #181818, inset -2px -2px 5px #3e3e3e;
                     }
-                    100% {
-                        background-position: 200% center;
+                    12% {
+                        /* UP: Popped out */
+                        /* Lift 20px up */
+                        transform: translateY(-20px); 
+                        background-color: #5d8bf4;    /* Bright Blue Cap */
+                        
+                        /* THE CONNECTED SURFACE TRICK:
+                           The shadow stack now has 20 layers to match the 20px lift.
+                           This ensures no gap appears between the cap and the tray.
+                        */
+                        box-shadow: 
+                            /* The Cylinder Body */
+                            ${generateColumnShadow(cylinderBodyColor)},
+                            /* The Drop Shadow on the floor */
+                            0px 30px 20px rgba(0,0,0,0.4);
                     }
-                }
-
-                @keyframes flash {
-                    0%, 100% {
-                        opacity: 0.3;
-                        transform: translate(-50%, -50%) scale(0.8);
-                    }
-                    50% {
-                        opacity: 1;
-                        transform: translate(-50%, -50%) scale(1.2);
-                    }
-                }
-
-                @keyframes progress {
-                    0% {
-                        transform: translateX(-100%);
-                    }
-                    100% {
-                        transform: translateX(400%);
+                    35%, 100% {
+                        /* BACK DOWN SLOWLY */
+                        transform: translateY(0px);
+                        background-color: #2b2b2b;
+                        box-shadow: inset 2px 2px 5px #181818, inset -2px -2px 5px #3e3e3e;
                     }
                 }
             `}</style>

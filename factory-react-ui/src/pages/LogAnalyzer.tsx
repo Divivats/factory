@@ -190,6 +190,61 @@ export default function LogAnalyzer() {
 
     const flatFiles = flattenFiles(logFiles);
 
+    // Helper to get folder header styles based on level (Year=0, Month=1, Day=2, etc.)
+    const getFolderHeaderStyle = (level: number) => {
+        switch (level) {
+            case 0: // Year level
+                return {
+                    padding: '1rem 1.5rem',
+                    background: 'linear-gradient(90deg, var(--primary), transparent)',
+                    borderBottom: '2px solid var(--border)',
+                    fontSize: '0.95rem',
+                    fontWeight: 700,
+                    color: 'var(--text-main)',
+                    position: 'sticky' as const,
+                    top: 0,
+                    zIndex: 10,
+                    backdropFilter: 'blur(8px)'
+                };
+            case 1: // Month level
+                return {
+                    padding: '0.75rem 1.5rem 0.75rem 3rem',
+                    background: 'var(--bg-hover)',
+                    borderBottom: '1px solid var(--border)',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    color: 'var(--text-main)',
+                    position: 'sticky' as const,
+                    top: 52,
+                    zIndex: 9
+                };
+            case 2: // Day level
+                return {
+                    padding: '0.6rem 1.5rem 0.6rem 4.5rem',
+                    background: 'rgba(56, 189, 248, 0.05)',
+                    borderBottom: '1px solid var(--border)',
+                    fontSize: '0.8rem',
+                    fontWeight: 500,
+                    color: 'var(--text-dim)',
+                    position: 'sticky' as const,
+                    top: 94,
+                    zIndex: 8
+                };
+            default: // Deeper levels
+                return {
+                    padding: `0.6rem 1.5rem 0.6rem ${1.5 + level * 1.5}rem`,
+                    background: 'var(--bg-panel)',
+                    borderBottom: '1px solid var(--border)',
+                    fontSize: '0.8rem',
+                    fontWeight: 500,
+                    color: 'var(--text-dim)',
+                    position: 'relative' as const,
+                    top: 'auto',
+                    zIndex: 'auto'
+                };
+        }
+    };
+
     return (
         <>
             {/* Loading Overlays */}
@@ -362,63 +417,61 @@ export default function LogAnalyzer() {
                             </div>
                         ) : (
                             <div style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                                {flatFiles.map((item, index) => (
-                                    item.isDirectory ? (
-                                        /* Folder Header - Flat, No Indentation */
-                                        <div
-                                            key={item.path}
-                                            style={{
-                                                padding: '0.75rem 1.5rem',
-                                                background: 'linear-gradient(90deg, var(--warning), transparent)',
-                                                borderBottom: '1px solid var(--border)',
-                                                position: 'sticky',
-                                                top: 0,
-                                                zIndex: 5
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                <FolderOpen size={16} color="var(--warning)" />
-                                                <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{item.name}</span>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        /* File Item - Flat, No Indentation */
-                                        <div
-                                            key={item.path}
-                                            onClick={() => handleFileClick(item.path)}
-                                            style={{
-                                                padding: '1rem 1.5rem',
-                                                borderBottom: '1px solid var(--border)',
-                                                cursor: 'pointer',
-                                                transition: 'all 0.2s',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.background = 'var(--bg-hover)';
-                                                e.currentTarget.style.paddingLeft = '2rem';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.background = 'transparent';
-                                                e.currentTarget.style.paddingLeft = '1.5rem';
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                <FileText size={16} color="var(--primary)" />
-                                                <div>
-                                                    <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{item.name}</div>
-                                                    {item.size && (
-                                                        <div className="text-mono" style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
-                                                            {(item.size / 1024).toFixed(2)} KB • {item.modifiedDate}
-                                                        </div>
-                                                    )}
+                                {flatFiles.map((item, index) => {
+                                    if (item.isDirectory) {
+                                        const headerStyle = getFolderHeaderStyle(item.level);
+                                        return (
+                                            /* Folder Header with Hierarchy Styling */
+                                            <div key={item.path} style={headerStyle}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                    <FolderOpen
+                                                        size={item.level === 0 ? 18 : 16}
+                                                        color={item.level === 0 ? 'var(--primary)' : 'var(--warning)'}
+                                                    />
+                                                    <span>{item.name}</span>
                                                 </div>
                                             </div>
-                                            <ChevronRight size={16} color="var(--text-dim)" />
-                                        </div>
-                                    )
-                                ))}
+                                        );
+                                    } else {
+                                        return (
+                                            /* File Item - Flat, No Indentation */
+                                            <div
+                                                key={item.path}
+                                                onClick={() => handleFileClick(item.path)}
+                                                style={{
+                                                    padding: '1rem 1.5rem',
+                                                    borderBottom: '1px solid var(--border)',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.background = 'var(--bg-hover)';
+                                                    e.currentTarget.style.paddingLeft = '2rem';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.background = 'transparent';
+                                                    e.currentTarget.style.paddingLeft = '1.5rem';
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                    <FileText size={16} color="var(--primary)" />
+                                                    <div>
+                                                        <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{item.name}</div>
+                                                        {item.size && (
+                                                            <div className="text-mono" style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                                                                {(item.size / 1024).toFixed(2)} KB • {item.modifiedDate}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <ChevronRight size={16} color="var(--text-dim)" />
+                                            </div>
+                                        );
+                                    }
+                                })}
                             </div>
                         )}
                     </div>
@@ -524,7 +577,20 @@ function VisualizationModal({
     onClose: () => void;
 }) {
     const [isMinimized, setIsMinimized] = useState(false);
+    const [isMinimizing, setIsMinimizing] = useState(false);
     const selectedBarrelData = selectedBarrel ? result.barrels.find(b => b.barrelId === selectedBarrel) : null;
+
+    const handleMinimize = () => {
+        setIsMinimizing(true);
+        setTimeout(() => {
+            setIsMinimized(true);
+            setIsMinimizing(false);
+        }, 400); // Match animation duration
+    };
+
+    const handleExpand = () => {
+        setIsMinimized(false);
+    };
 
     if (isMinimized) {
         return (
@@ -539,9 +605,10 @@ function VisualizationModal({
                     padding: '1rem 1.5rem',
                     cursor: 'pointer',
                     zIndex: 1000,
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+                    boxShadow: '0 10px 40px rgba(56, 189, 248, 0.3)',
+                    animation: 'popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
                 }}
-                onClick={() => setIsMinimized(false)}
+                onClick={handleExpand}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <BarChart3 size={20} color="var(--primary)" />
@@ -552,107 +619,110 @@ function VisualizationModal({
     }
 
     return (
-        <div
-            style={{
-                position: 'fixed',
-                inset: 0,
-                background: 'var(--bg-app)',
-                zIndex: 1000,
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden'
-            }}
-        >
-            {/* Top Bar */}
-            <div style={{
-                padding: '1rem 2rem',
-                background: 'var(--bg-panel)',
-                borderBottom: '2px solid var(--border)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexShrink: 0
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <BarChart3 size={24} color="var(--primary)" />
-                    <div>
-                        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
-                            Log Analysis Results
-                        </h2>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginTop: '0.25rem' }}>
-                            {result.barrels.length} barrels analyzed
-                            {result.summary?.averageExecutionTime && ` • Avg: ${result.summary.averageExecutionTime.toFixed(0)}ms`}
-                        </div>
-                    </div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button className="btn btn-secondary btn-icon" onClick={() => setIsMinimized(true)}>
-                        <Minimize2 size={20} />
-                    </button>
-                    <button className="btn btn-secondary btn-icon" onClick={onClose}>
-                        <X size={20} />
-                    </button>
-                </div>
-            </div>
-
-            {/* Scrollable Content */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
-                {/* Bar Chart - Maximum Screen Space */}
-                <div className="card" style={{
-                    padding: '1.5rem',
-                    marginBottom: '1rem',
-                    height: 'calc(100vh - 150px)',
-                    minHeight: '700px'
+        <>
+            <div
+                style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'var(--bg-app)',
+                    zIndex: 1000,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    animation: isMinimizing ? 'minimizeModal 0.4s cubic-bezier(0.4, 0, 1, 1) forwards' : 'expandModal 0.4s cubic-bezier(0, 0, 0.2, 1)',
+                    transformOrigin: 'bottom right'
+                }}
+            >
+                {/* Top Bar */}
+                <div style={{
+                    padding: '1rem 2rem',
+                    background: 'var(--bg-panel)',
+                    borderBottom: '2px solid var(--border)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexShrink: 0
                 }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '1rem' }}>
-                        Barrel Execution Times - Click to View Details
-                    </h3>
-                    <div style={{ height: 'calc(100% - 40px)' }}>
-                        <BarrelExecutionChart
-                            barrels={result.barrels}
-                            selectedBarrel={selectedBarrel}
-                            onBarrelClick={onBarrelClick}
-                        />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <BarChart3 size={24} color="var(--primary)" />
+                        <div>
+                            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
+                                Log Analysis Results
+                            </h2>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginTop: '0.25rem' }}>
+                                {result.barrels.length} barrels analyzed
+                                {result.summary?.averageExecutionTime && ` • Avg: ${result.summary.averageExecutionTime.toFixed(0)}ms`}
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <button className="btn btn-secondary btn-icon" onClick={handleMinimize}>
+                            <Minimize2 size={20} />
+                        </button>
+                        <button className="btn btn-secondary btn-icon" onClick={onClose}>
+                            <X size={20} />
+                        </button>
                     </div>
                 </div>
 
-                {/* Gantt Chart - Maximum Screen Space */}
-                {selectedBarrel && selectedBarrelData && (
-                    <div
-                        id="gantt-chart-section"
-                        className="card"
-                        style={{
-                            padding: '1.5rem',
-                            height: 'calc(100vh - 150px)',
-                            minHeight: '700px',
-                            animation: 'slideIn 0.4s ease-out',
-                            border: '2px solid var(--primary)'
-                        }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <div>
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem' }}>
-                                    Operation Timeline - Barrel {selectedBarrel}
-                                </h3>
-                                <div className="text-mono" style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>
-                                    {selectedBarrelData.operations.length} operations • Total: {selectedBarrelData.totalExecutionTime}ms
-                                </div>
-                            </div>
-                            <button className="btn btn-secondary" onClick={() => onBarrelClick('')}>
-                                Close Timeline
-                            </button>
-                        </div>
-                        <div style={{ height: 'calc(100% - 70px)' }}>
-                            <OperationGanttChart
-                                operations={selectedBarrelData.operations}
-                                barrelId={selectedBarrel}
+                {/* Scrollable Content */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
+                    {/* Bar Chart - Maximum Screen Space */}
+                    <div className="card" style={{
+                        padding: '1.5rem',
+                        marginBottom: '1rem',
+                        height: 'calc(100vh - 150px)',
+                        minHeight: '700px'
+                    }}>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '1rem' }}>
+                            Barrel Execution Times - Click to View Details
+                        </h3>
+                        <div style={{ height: 'calc(100% - 40px)' }}>
+                            <BarrelExecutionChart
+                                barrels={result.barrels}
+                                selectedBarrel={selectedBarrel}
+                                onBarrelClick={onBarrelClick}
                             />
                         </div>
                     </div>
-                )}
-            </div>
 
-            <style>{`
+                    {/* Gantt Chart - Maximum Screen Space */}
+                    {selectedBarrel && selectedBarrelData && (
+                        <div
+                            id="gantt-chart-section"
+                            className="card"
+                            style={{
+                                padding: '1.5rem',
+                                height: 'calc(100vh - 150px)',
+                                minHeight: '700px',
+                                animation: 'slideIn 0.4s ease-out',
+                                border: '2px solid var(--primary)'
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <div>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem' }}>
+                                        Operation Timeline - Barrel {selectedBarrel}
+                                    </h3>
+                                    <div className="text-mono" style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+                                        {selectedBarrelData.operations.length} operations • Total: {selectedBarrelData.totalExecutionTime}ms
+                                    </div>
+                                </div>
+                                <button className="btn btn-secondary" onClick={() => onBarrelClick('')}>
+                                    Close Timeline
+                                </button>
+                            </div>
+                            <div style={{ height: 'calc(100% - 70px)' }}>
+                                <OperationGanttChart
+                                    operations={selectedBarrelData.operations}
+                                    barrelId={selectedBarrel}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <style>{`
                 @keyframes slideIn {
                     from {
                         opacity: 0;
@@ -663,7 +733,48 @@ function VisualizationModal({
                         transform: translateY(0);
                     }
                 }
+
+                @keyframes minimizeModal {
+                    0% {
+                        opacity: 1;
+                        transform: scale(1) translate(0, 0);
+                        border-radius: 0;
+                    }
+                    100% {
+                        opacity: 0;
+                        transform: scale(0.05) translate(1800%, 900%);
+                        border-radius: 20px;
+                    }
+                }
+
+                @keyframes expandModal {
+                    0% {
+                        opacity: 0;
+                        transform: scale(0.05) translate(1800%, 900%);
+                        border-radius: 20px;
+                    }
+                    100% {
+                        opacity: 1;
+                        transform: scale(1) translate(0, 0);
+                        border-radius: 0;
+                    }
+                }
+
+                @keyframes popIn {
+                    0% {
+                        opacity: 0;
+                        transform: scale(0.3);
+                    }
+                    50% {
+                        transform: scale(1.1);
+                    }
+                    100% {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+                }
             `}</style>
-        </div>
+            </div>
+        </>
     );
 }

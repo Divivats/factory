@@ -190,14 +190,15 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         Plotly.newPlot(chartRef.current, [trace], layout, config);
 
         // Add click handler
-        chartRef.current.on('plotly_click', (data: any) => {
+        const chartElement = chartRef.current;
+        chartElement.on('plotly_click', (data: any) => {
             const pointIndex = data.points[0].pointIndex;
             const clickedBarrel = barrels[pointIndex];
             onBarrelClick(clickedBarrel.barrelId);
         });
 
         // Dynamic tick adjustment on zoom/pan
-        chartRef.current.on('plotly_relayout', (eventData: any) => {
+        chartElement.on('plotly_relayout', (eventData: any) => {
             if (eventData['xaxis.range[0]'] !== undefined && eventData['xaxis.range[1]'] !== undefined) {
                 const visibleStart = Math.max(0, Math.floor(eventData['xaxis.range[0]']));
                 const visibleEnd = Math.min(barrelCount, Math.ceil(eventData['xaxis.range[1]']));
@@ -206,7 +207,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
                 const newTickGap = calculateTickGap(visibleStart, visibleEnd);
 
                 // Update x-axis with new tick spacing
-                Plotly.relayout(chartRef.current!, {
+                Plotly.relayout(chartElement, {
                     'xaxis.dtick': newTickGap
                 });
             }

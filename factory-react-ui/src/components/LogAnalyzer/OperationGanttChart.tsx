@@ -24,6 +24,7 @@ export default function OperationGanttChart({ operations, barrelId }: Props) {
             type: 'bar' as const,
             y: sortedOps.map(op => op.operationName),
             x: sortedOps.map(op => op.actualDuration),
+            base: sortedOps.map(op => op.startTime), // <--- ADDED: Defines the start time
             name: 'Actual Time',
             orientation: 'h' as const,
             marker: {
@@ -63,6 +64,7 @@ export default function OperationGanttChart({ operations, barrelId }: Props) {
             type: 'bar' as const,
             y: sortedOps.map(op => op.operationName),
             x: sortedOps.map(op => op.idealDuration),
+            base: sortedOps.map(op => op.startTime), // <--- ADDED: Aligns ideal bar with actual start for comparison
             name: 'Ideal Time',
             orientation: 'h' as const,
             marker: {

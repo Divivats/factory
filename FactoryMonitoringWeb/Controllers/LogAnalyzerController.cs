@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace FactoryMonitoringWeb.Controllers
 {
@@ -182,7 +183,6 @@ namespace FactoryMonitoringWeb.Controllers
                 if (fileContent == null)
                     return StatusCode(408, new { error = "Timeout reading file" });
 
-                // REAL PARSING HAPPENS HERE
                 return Ok(ParseEnhancedLogFile(fileContent));
             }
             catch (Exception ex)
@@ -244,35 +244,79 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // ===================== PARSER (WORKING) =====================
+        // ===================== PARSER (UPDATED & ROBUST) =====================
         private object ParseEnhancedLogFile(string content)
         {
             var barrelMap = new Dictionary<string, BarrelData>();
             var startMap = new Dictionary<string, Dictionary<string, int>>();
 
-            var lines = content.Split('\n');
+            var lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            int processedLines = 0;
 
             foreach (var line in lines)
             {
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 if (line.StartsWith("SEM_LOG_VERSION") || line.StartsWith("DateTime")) continue;
 
-                var columns = line.Split('\t');
-                if (columns.Length < 11) continue;
+                string scope = "", operationName = "", status = "", dataField = "";
 
-                var scope = columns[7].Trim();
-                var operationName = columns[8].Trim();
-                var status = columns[9].Trim();
-                var dataField = columns[10].Trim();
+                // Strategy 1: Tab Separated (Standard)
+                var tabColumns = line.Split('\t');
+                if (tabColumns.Length >= 11)
+                {
+                    scope = tabColumns[7].Trim();
+                    operationName = tabColumns[8].Trim();
+                    status = tabColumns[9].Trim();
+                    dataField = tabColumns[10].Trim();
+                }
+                // Strategy 2: Robust Fallback (Space Separated or Mixed)
+                else
+                {
+                    // Find the start of the JSON data to separate meta-data from payload
+                    int jsonStartIndex = line.IndexOf('{');
+                    if (jsonStartIndex == -1)
+                    {
+                        _logger.LogWarning("Skipping line: No JSON data found. Line: {Line}", line);
+                        continue;
+                    }
 
+                    dataField = line.Substring(jsonStartIndex).Trim();
+                    string metaPart = line.Substring(0, jsonStartIndex).Trim();
+
+                    // Split the meta part by whitespace
+                    var parts = Regex.Split(metaPart, @"\s+");
+
+                    // We expect at least: [Status] [Scope] [OpName] [OpStatus]
+                    // But typically columns: Date Time Machine LogType Lot Recipe Product Status Scope OpName OpStatus
+                    if (parts.Length < 3)
+                    {
+                        _logger.LogWarning("Skipping line: Not enough columns. Line: {Line}", line);
+                        continue;
+                    }
+
+                    // Extract the last 3 parts before JSON
+                    status = parts[parts.Length - 1];       // e.g. START or END
+                    operationName = parts[parts.Length - 2]; // e.g. Sequence_Mask_Pickup
+                    scope = parts[parts.Length - 3];         // e.g. Sequence
+                }
+
+                // Parse JSON Data
                 JObject json;
-                try { json = JObject.Parse(dataField); }
-                catch { continue; }
+                try
+                {
+                    json = JObject.Parse(dataField);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning("JSON Parse Error: {Message}. Data: {Data}", ex.Message, dataField);
+                    continue;
+                }
 
                 var barrelId = json["barrelId"]?.ToString();
                 if (string.IsNullOrEmpty(barrelId)) continue;
 
-                var opKey = $"{scope}_{operationName}";
+                // Use OperationName directly since it already contains the prefix
+                var opKey = operationName;
 
                 if (!barrelMap.ContainsKey(barrelId))
                 {
@@ -287,16 +331,22 @@ namespace FactoryMonitoringWeb.Controllers
                     if (startTs != null)
                     {
                         startMap[barrelId][opKey] = startTs.Value;
+                        processedLines++;
                     }
                 }
 
                 // ---------- END ----------
-                if (status == "END")
+                else if (status == "END")
                 {
-                    if (!startMap[barrelId].ContainsKey(opKey)) continue;
+                    if (!startMap[barrelId].ContainsKey(opKey))
+                    {
+                        // _logger.LogWarning("Orphaned END found for {Op} in Barrel {B}", opKey, barrelId);
+                        continue;
+                    }
 
                     var startTs = startMap[barrelId][opKey];
                     var endTs = json["endTs"]?.Value<int>();
+
                     if (endTs == null || endTs < startTs) continue;
 
                     var barrel = barrelMap[barrelId];
@@ -312,10 +362,13 @@ namespace FactoryMonitoringWeb.Controllers
                     });
 
                     startMap[barrelId].Remove(opKey);
+                    processedLines++;
                 }
             }
 
-            // Calculate total execution time correctly
+            _logger.LogInformation("Parsed {Count} valid operations across {BCount} barrels", processedLines, barrelMap.Count);
+
+            // Calculate total execution time
             foreach (var barrel in barrelMap.Values)
             {
                 if (barrel.Operations.Count > 0)
