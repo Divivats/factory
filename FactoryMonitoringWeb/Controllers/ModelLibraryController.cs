@@ -14,6 +14,10 @@ namespace FactoryMonitoringWeb.Controllers
         private readonly ILogger<ModelLibraryController> _logger;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
+        // Static dictionary to track download requests (Prototype only - use Redis/Db in prod)
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DownloadRequestStatus> _downloadRequests 
+            = new System.Collections.Concurrent.ConcurrentDictionary<string, DownloadRequestStatus>();
+
         public ModelLibraryController(FactoryDbContext context, ILogger<ModelLibraryController> logger, IHttpContextAccessor httpContextAccessor)
         {
             _context = context;
@@ -276,6 +280,38 @@ namespace FactoryMonitoringWeb.Controllers
                     _context.AgentCommands.Add(command);
                 }
 
+                // Update target model for affected lines
+                // Get distinct line numbers from the target PCs
+                var affectedLines = targetPCs.Select(p => p.LineNumber).Distinct().ToList();
+                
+                foreach (var lineNumber in affectedLines)
+                {
+                    // targetModelName is already defined in the outer scope (line 156)
+                    var lineTarget = await _context.LineTargetModels
+                        .FirstOrDefaultAsync(ltm => ltm.LineNumber == lineNumber);
+                    
+                    if (lineTarget != null)
+                    {
+                        // Update existing target
+                        lineTarget.TargetModelName = targetModelName;
+                        lineTarget.LastUpdated = DateTime.Now;
+                        lineTarget.Notes = $"Updated via {request.TargetType} deployment at {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+                    }
+                    else
+                    {
+                        // Create new target
+                        _context.LineTargetModels.Add(new LineTargetModel
+                        {
+                            LineNumber = lineNumber,
+                            TargetModelName = targetModelName,
+                            SetByUser = "System",
+                            SetDate = DateTime.Now,
+                            LastUpdated = DateTime.Now,
+                            Notes = $"Set via {request.TargetType} deployment at {DateTime.Now:yyyy-MM-dd HH:mm:ss}"
+                        });
+                    }
+                }
+
                 await _context.SaveChangesAsync();
 
                 return Ok(new
@@ -448,9 +484,126 @@ namespace FactoryMonitoringWeb.Controllers
                 return StatusCode(500, new { error = "Failed to delete line model" });
             }
         }
+
+
+        // ==========================================
+        // AGENT TO SERVER DOWNLOAD FLOW
+        // ==========================================
+
+        [HttpPost("request-download")]
+        public async Task<ActionResult> RequestDownloadFromPC([FromBody] DownloadFromPCRequest request)
+        {
+            try
+            {
+                var requestId = Guid.NewGuid().ToString();
+                // Use Relative URL because Agent's HttpClient is already connected to the server and expects a path
+                var uploadUrl = $"/api/ModelLibrary/receive-upload/{requestId}";
+
+                var command = new AgentCommand
+                {
+                    PCId = request.PCId,
+                    CommandType = "UploadModelToLib",
+                    CommandData = JsonConvert.SerializeObject(new
+                    {
+                        ModelName = request.ModelName,
+                        UploadUrl = uploadUrl
+                    }),
+                    Status = "Pending",
+                    CreatedDate = DateTime.Now
+                };
+
+                _context.AgentCommands.Add(command);
+                await _context.SaveChangesAsync();
+
+                _downloadRequests[requestId] = new DownloadRequestStatus { Status = "Pending", CreatedAt = DateTime.Now };
+
+                return Ok(new { requestId, status = "Pending" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error requesting download from PC");
+                return StatusCode(500, new { error = "Failed to request download" });
+            }
+        }
+
+        [HttpPost("receive-upload/{requestId}")]
+        [RequestSizeLimit(500 * 1024 * 1024)] // 500MB limit
+        public async Task<ActionResult> ReceiveUploadFromAgent(string requestId, [FromForm] IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0) return BadRequest("No file uploaded");
+
+                if (!_downloadRequests.ContainsKey(requestId)) return NotFound("Invalid Request ID");
+
+                var tempPath = Path.Combine(Path.GetTempPath(), "FactoryDownloads");
+                Directory.CreateDirectory(tempPath);
+                var filePath = Path.Combine(tempPath, $"{requestId}.zip");
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                _downloadRequests[requestId] = new DownloadRequestStatus 
+                { 
+                    Status = "Ready", 
+                    FilePath = filePath, 
+                    FileName = file.FileName,
+                    CreatedAt = DateTime.Now 
+                };
+
+                return Ok(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error receiving agent upload");
+                _downloadRequests[requestId] = new DownloadRequestStatus { Status = "Failed", Error = ex.Message, CreatedAt = DateTime.Now };
+                return StatusCode(500, "Upload failed");
+            }
+        }
+
+        [HttpGet("check-status/{requestId}")]
+        public ActionResult CheckDownloadStatus(string requestId)
+        {
+            if (!_downloadRequests.TryGetValue(requestId, out var status))
+            {
+                return NotFound(new { error = "Request not found" });
+            }
+            return Ok(new { status = status.Status, error = status.Error });
+        }
+
+        [HttpGet("serve-download/{requestId}")]
+        public ActionResult ServeDownload(string requestId)
+        {
+            if (!_downloadRequests.TryGetValue(requestId, out var status) || status.Status != "Ready" || !System.IO.File.Exists(status.FilePath))
+            {
+                return NotFound("File not ready or expired");
+            }
+
+            var bytes = System.IO.File.ReadAllBytes(status.FilePath);
+            // Cleanup? Maybe keep for a bit. For now, serve it.
+            return File(bytes, "application/zip", status.FileName);
+        }
+
     }
 
-    // Request DTOs
+    // Models under namespace
+    public class DownloadRequestStatus 
+    {
+        public string Status { get; set; } // Pending, Ready, Failed
+        public string FilePath { get; set; }
+        public string FileName { get; set; }
+        public string Error { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    public class DownloadFromPCRequest
+    {
+        public int PCId { get; set; }
+        public string ModelName { get; set; }
+    }
+
     public class ApplyModelRequest
     {
         public int ModelFileId { get; set; }

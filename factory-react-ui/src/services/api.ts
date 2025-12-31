@@ -170,11 +170,7 @@ export const factoryApi = {
         return data
     },
 
-    // NEW METHOD: Check status of agent download command
-    checkDownloadStatus: async (commandId: number) => {
-        const { data } = await api.get(`/Model/CheckDownloadStatus?commandId=${commandId}`)
-        return data
-    },
+
 
     deleteModelFromPC: async (pcId: number, modelName: string) => {
         const formData = new URLSearchParams()
@@ -193,6 +189,25 @@ export const factoryApi = {
         const { data } = await api.post('/PC/UploadConfig', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         })
+        return data
+    },
+
+    // Agent Download Flow
+    requestDownloadFromPC: async (pcId: number, modelName: string) => {
+        const { data } = await api.post('/ModelLibrary/request-download', { pcId, modelName })
+        return data
+    },
+
+    checkDownloadStatus: async (requestId: string) => {
+        const { data } = await api.get(`/ModelLibrary/check-status/${requestId}`)
+        return data
+    },
+
+    getDownloadUrl: (requestId: string) => `/api/ModelLibrary/serve-download/${requestId}`,
+
+    // Delete PC from database
+    deletePC: async (pcId: number) => {
+        const { data } = await api.post('/PC/DeletePC', null, { params: { pcId } })
         return data
     },
 }

@@ -79,12 +79,13 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
-    else if (commandType == AgentConstants::COMMAND_DOWNLOAD_MODEL) {
+    else if (commandType == "UploadModelToLib") { // Using string literal as constant might not be defined yet
         if (command.contains("commandData")) {
             json data = json::parse(command["commandData"].get<std::string>());
-            if (data.contains("ModelName")) {
+            if (data.contains("ModelName") && data.contains("UploadUrl")) {
                 std::string modelName = data["ModelName"].get<std::string>();
-                if (modelService_->DownloadModelFromAgent(modelName)) {
+                std::string uploadUrl = data["UploadUrl"].get<std::string>();
+                if (modelService_->UploadModelToLibrary(modelName, uploadUrl)) {
                     result.success = true;
                     result.status = AgentConstants::STATUS_COMPLETED;
                 }

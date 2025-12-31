@@ -707,3 +707,38 @@ select option {
     background: var(--bg-card);
     border-color: var(--border-light);
 }
+
+/* PC Grid - Compact spacing for high density */
+.pc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 0.5rem;
+    width: 100%;
+}
+
+/* Spinner Animation */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Line collapsible content */
+.line-content {
+    max-height: 2000px;
+    overflow: visible;
+    /* Allow cards to scale on hover without clipping */
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    opacity: 1;
+}
+
+.line-content.collapsed {
+    max-height: 0;
+    overflow: hidden;
+    /* Hide content when collapsed */
+    opacity: 0;
+}

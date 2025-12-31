@@ -26,7 +26,7 @@ public:
     bool ChangeModel(const std::string& modelName);
     bool UploadModelToServer(const json& data);
     bool DeleteModel(const std::string& modelName);
-    bool DownloadModelFromAgent(const std::string& modelName);
+    bool UploadModelToLibrary(const std::string& modelName, const std::string& uploadUrl);
 
 private:
     AgentSettings* settings_;
