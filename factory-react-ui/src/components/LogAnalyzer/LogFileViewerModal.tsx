@@ -50,7 +50,8 @@ export default function LogFileViewerModal({
                         <h2 style={{
                             fontSize: '1.25rem',
                             fontWeight: 700,
-                            background: 'linear-gradient(135deg, var(--primary), var(--success))',
+                            // CHANGED: Softer Gradient (Blue to Green) instead of Neon
+                            background: 'linear-gradient(135deg, #60a5fa, #4ade80)',
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
                             backgroundClip: 'text'
@@ -86,13 +87,17 @@ export default function LogFileViewerModal({
                         alignItems: 'center'
                     }}>
                         <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             className="btn btn-primary"
                             onClick={onVisualize}
                             disabled={analyzing}
                             style={{
-                                boxShadow: analyzing ? 'none' : '0 4px 12px rgba(56, 189, 248, 0.3)'
+                                // CHANGED: Softer Matte Blue Background
+                                background: '#3b82f6',
+                                border: '1px solid #2563eb',
+                                // CHANGED: Removed Neon Glow, replaced with subtle shadow
+                                boxShadow: analyzing ? 'none' : '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
                             }}
                         >
                             <BarChart3 size={18} />
@@ -100,8 +105,8 @@ export default function LogFileViewerModal({
                         </motion.button>
 
                         <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             className="btn btn-secondary"
                             onClick={onDownload}
                             disabled={downloading}

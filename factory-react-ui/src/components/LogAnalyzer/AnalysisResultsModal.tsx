@@ -35,13 +35,16 @@ export default function AnalysisResultsModal({
                         position: 'fixed',
                         bottom: '2rem',
                         right: '2rem',
-                        background: 'linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%)',
-                        border: '2px solid #38bdf8',
+                        // CHANGED: Matte Royal Blue instead of Neon Gradient
+                        background: '#3b82f6',
+                        // CHANGED: Softer border
+                        border: '1px solid #2563eb',
                         borderRadius: '12px',
                         padding: '1rem 1.5rem',
                         cursor: 'pointer',
                         zIndex: 1000,
-                        boxShadow: '0 10px 40px rgba(56, 189, 248, 0.4), 0 0 0 1px rgba(255,255,255,0.1) inset'
+                        // CHANGED: Removed colored glow, used standard shadow
+                        boxShadow: '0 8px 20px rgba(0, 0, 0, 0.3)'
                     }}
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -79,7 +82,8 @@ export default function AnalysisResultsModal({
                         flexShrink: 0
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <BarChart3 size={24} color="var(--primary)" />
+                            {/* CHANGED: Softer Icon Color */}
+                            <BarChart3 size={24} color="#60a5fa" />
                             <div>
                                 <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
                                     Log Analysis Results
@@ -99,6 +103,7 @@ export default function AnalysisResultsModal({
                         </div>
                     </div>
 
+                    {/* ... Rest of the component (Charts) remains the same ... */}
                     {/* Command Center Layout - Split Pane */}
                     <div style={{
                         flex: 1,
@@ -123,7 +128,8 @@ export default function AnalysisResultsModal({
                                 <h3 style={{
                                     fontSize: '1.1rem',
                                     fontWeight: 600,
-                                    color: 'var(--primary)',
+                                    // CHANGED: Softer primary color
+                                    color: '#60a5fa',
                                     marginBottom: '1rem',
                                     flexShrink: 0
                                 }}>
@@ -152,7 +158,8 @@ export default function AnalysisResultsModal({
                                     height: '100%',
                                     display: 'flex',
                                     flexDirection: 'column',
-                                    border: '2px solid var(--primary)'
+                                    // CHANGED: Softer border
+                                    border: '1px solid #3b82f6'
                                 }}>
                                     <div style={{
                                         display: 'flex',
@@ -165,7 +172,8 @@ export default function AnalysisResultsModal({
                                             <h3 style={{
                                                 fontSize: '1.1rem',
                                                 fontWeight: 600,
-                                                color: 'var(--primary)',
+                                                // CHANGED: Softer primary color
+                                                color: '#60a5fa',
                                                 marginBottom: '0.5rem'
                                             }}>
                                                 Operation Timeline - Barrel {selectedBarrel}

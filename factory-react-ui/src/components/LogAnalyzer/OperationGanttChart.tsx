@@ -67,7 +67,7 @@ export default function OperationGanttChart({ operations, barrelId }: Props) {
             offsetgroup: '2', // <--- Shares the second "candle" slot
             marker: {
                 color: '#38bdf8',
-                line: { color: '#0284c7', width: 2 }
+                line: { color: '#38bdf8', width: 2 }
             },
             text: sortedOps.map(op => op.actualDuration <= op.idealDuration ? `${op.actualDuration.toFixed(0)}ms` : ''),
             textposition: 'inside' as const,

@@ -36,7 +36,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
             marker: {
                 color: colors,
                 line: {
-                    color: barrels.map(b => b.barrelId === selectedBarrel ? '#0ea5e9' : '#64748b'),
+                    color: barrels.map(b => b.barrelId === selectedBarrel ? '#38bdf8' : '#64748b'),
                     width: 2
                 }
             },

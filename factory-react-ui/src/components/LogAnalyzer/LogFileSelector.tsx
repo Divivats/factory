@@ -133,7 +133,7 @@ export default function LogFileSelector({
                 flexShrink: 0
             }}>
                 <div>
-                    <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--primary)', margin: 0, marginBottom: '0.5rem' }}>
+                    <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#60a5fa', margin: 0, marginBottom: '0.5rem' }}>
                         Log Files - Line {pcInfo.line} PC-{pcInfo.pcNumber}
                     </h2>
                     <div className="text-mono" style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
@@ -200,7 +200,7 @@ export default function LogFileSelector({
                                 marginBottom: '1rem',
                                 flexShrink: 0
                             }}>
-                                <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--primary)', margin: 0 }}>
+                                    <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#60a5fa', margin: 0 }}>
                                     Available Files ({files.length})
                                 </h3>
                                 {selectedFile && (

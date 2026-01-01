@@ -36,7 +36,7 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
                     width: '40px',
                     height: '40px',
                     border: '4px solid var(--border)',
-                    borderTopColor: 'var(--primary)',
+                    borderTopColor: '#3b82f6',
                     borderRadius: '50%',
                     animation: 'spin 1s linear infinite',
                     marginBottom: '1rem'
@@ -61,7 +61,7 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
                 <h2 style={{
                     fontSize: '1.2rem',
                     fontWeight: 700,
-                    color: 'var(--primary)',
+                    color: '#60a5fa',
                     margin: 0,
                     marginBottom: '0.5rem'
                 }}>
@@ -82,7 +82,7 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
                     >
                         <div style={{
                             padding: '1rem 1.5rem',
-                            background: 'linear-gradient(90deg, rgba(56, 189, 248, 0.15), transparent)',
+                            background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.15), transparent)',
                             borderBottom: '1px solid var(--border)',
                             position: 'sticky',
                             top: 0,
@@ -90,7 +90,7 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
                             backdropFilter: 'blur(12px)'
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <Box size={18} color="rgba(56, 189, 248, 0.9)" />
+                                <Box size={18} color="#3b82f6" />
                                 <span style={{
                                     fontSize: '1rem',
                                     fontWeight: 700,
@@ -156,7 +156,8 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
                                         }}
                                     >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                            <Monitor size={20} color="var(--primary)" />
+                                            {/* CHANGED: Standard Blue Icon */}
+                                            <Monitor size={20} color="#3b82f6" />
                                             <div>
                                                 <div style={{
                                                     fontWeight: 700,

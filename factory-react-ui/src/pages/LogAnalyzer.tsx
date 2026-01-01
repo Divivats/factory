@@ -165,11 +165,11 @@ export default function LogAnalyzer() {
                         width: '40px',
                         height: '40px',
                         borderRadius: 'var(--radius-md)',
-                        background: 'linear-gradient(135deg, var(--primary), var(--success))',
+                        background: 'linear-gradient(135deg, #3b82f6, #10b981)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 4px 12px rgba(56, 189, 248, 0.3)'
+                        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)'
                     }}>
                         <ScrollText size={22} color="#ffffff" />
                     </div>
@@ -178,7 +178,7 @@ export default function LogAnalyzer() {
                             fontSize: '1.3rem',
                             fontWeight: 700,
                             margin: 0,
-                            background: 'linear-gradient(135deg, var(--primary), var(--success))',
+                            background: 'linear-gradient(135deg, #60a5fa, #34d399)',
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
                             backgroundClip: 'text'
