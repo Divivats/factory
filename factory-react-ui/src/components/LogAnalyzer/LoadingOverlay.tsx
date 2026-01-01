@@ -1,7 +1,5 @@
-﻿// Loading Overlay Component - Slower & Smooth Connected Pistons
-// Location: src/components/LogAnalyzer/LoadingOverlay.tsx
-
-import React from 'react';
+﻿import React from 'react';
+import { motion } from 'framer-motion';
 
 interface Props {
     message?: string;
@@ -12,14 +10,10 @@ export default function LoadingOverlay({ message = 'LOADING...', submessage }: P
     const pegCount = 12;
     const radius = 85;
     const pegSize = 32;
-
-    // CONFIG: Animation Speed
-    // Increased duration for a "somewhat slow", relaxed mechanical feel
+    const cylinderBodyColor = '#3b5cb8';
     const ANIMATION_DURATION = '2.2s';
-    const STAGGER_DELAY = 0.18; // Increased delay to match the slower speed
+    const STAGGER_DELAY = 0.18;
 
-    // Helper to generate the "Solid Column" shadow stack
-    // The cylinder lifts 20px, so we need ~20 layers of shadow to bridge the gap perfectly.
     const generateColumnShadow = (color: string) => {
         let shadow = '';
         for (let i = 1; i <= 20; i++) {
@@ -28,41 +22,35 @@ export default function LoadingOverlay({ message = 'LOADING...', submessage }: P
         return shadow;
     };
 
-    const cylinderBodyColor = '#3b5cb8'; // Darker blue for the sides
-
     return (
-        <div
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             style={{
                 position: 'fixed',
                 inset: 0,
-                background: '#23242a',
+                background: 'rgba(11, 17, 33, 0.95)',
                 zIndex: 9999,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                animation: 'fadeIn 0.5s ease-out', // Slower fade in too
+                backdropFilter: 'blur(8px)',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
             }}
         >
-            {/* The Tray - Tilted 15 degrees */}
-            <div
-                style={{
-                    position: 'relative',
-                    width: '260px',
-                    height: '260px',
-                    borderRadius: '50%',
-                    background: '#2b2b2b',
-                    // The concave dish look
-                    boxShadow: 'inset 5px 5px 15px rgba(0,0,0,0.5), inset -5px -5px 15px rgba(255,255,255,0.05)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    // Tilted slightly to show the piston sides
-                    transform: 'rotateX(15deg)',
-                    transformStyle: 'preserve-3d'
-                }}
-            >
-                {/* 1. The Piston Pegs */}
+            <div style={{
+                position: 'relative',
+                width: '260px',
+                height: '260px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                boxShadow: 'inset 5px 5px 20px rgba(0,0,0,0.6), inset -5px -5px 20px rgba(255,255,255,0.05), 0 10px 40px rgba(56, 189, 248, 0.10)',                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transform: 'rotateX(15deg)',
+                transformStyle: 'preserve-3d',
+            }}>
                 {[...Array(pegCount)].map((_, i) => {
                     const angle = (i * 360) / pegCount;
                     const radian = (angle * Math.PI) / 180;
@@ -70,62 +58,53 @@ export default function LoadingOverlay({ message = 'LOADING...', submessage }: P
                     const y = Math.sin(radian - Math.PI / 2) * radius;
 
                     return (
-                        <div
-                            key={i}
-                            style={{
-                                position: 'absolute',
-                                left: '50%',
-                                top: '50%',
-                                width: `${pegSize}px`,
-                                height: `${pegSize}px`,
-                                // Position on the tray
-                                transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
-                            }}
-                        >
-                            <div
-                                style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    borderRadius: '50%',
-                                    // Default: Dark Hole
-                                    background: '#2b2b2b',
-                                    boxShadow: 'inset 2px 2px 5px #181818, inset -2px -2px 5px #3e3e3e',
-                                    // The Piston Animation
-                                    animation: `pistonPump ${ANIMATION_DURATION} ease-in-out infinite`,
-                                    animationDelay: `${i * STAGGER_DELAY}s`,
-                                }}
-                            />
+                        <div key={i} style={{
+                            position: 'absolute',
+                            left: '50%',
+                            top: '50%',
+                            width: `${pegSize}px`,
+                            height: `${pegSize}px`,
+                            transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+                        }}>
+                            <div style={{
+                                width: '100%',
+                                height: '100%',
+                                borderRadius: '50%',
+                                background: '#1e293b',
+                                boxShadow: 'inset 2px 2px 5px #0f172a, inset -2px -2px 5px #334155',
+                                animation: `pistonPump ${ANIMATION_DURATION} ease-in-out infinite`,
+                                animationDelay: `${i * STAGGER_DELAY}s`,
+                            }} />
                         </div>
                     );
                 })}
 
-                {/* 2. Center Text - Counter-rotated to stand up straight */}
                 <div style={{
                     zIndex: 10,
                     textAlign: 'center',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    // Counter-rotate so text faces user directly
-                    transform: 'rotateX(-15deg)'
+                    transform: 'rotateX(-15deg)',
                 }}>
                     <div style={{
-                        color: '#eeeeee',
-                        fontSize: '14px',
-                        letterSpacing: '3px',
-                        fontWeight: '600',
+                        color: '#f8fafc',
+                        fontSize: '15px',
+                        letterSpacing: '4px',
+                        fontWeight: '700',
                         textTransform: 'uppercase',
-                        opacity: 0.9,
-                        textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+                        opacity: 0.95,
+                        textShadow: '0 2px 8px rgba(56, 189, 248, 0.5)',
+                        marginBottom: submessage ? '0.5rem' : 0
                     }}>
                         {message}
                     </div>
                     {submessage && (
                         <div style={{
-                            color: '#888888',
+                            color: '#94a3b8',
                             fontSize: '12px',
-                            marginTop: '6px',
-                            fontWeight: '400'
+                            fontWeight: '500',
+                            letterSpacing: '0.5px'
                         }}>
                             {submessage}
                         </div>
@@ -133,45 +112,25 @@ export default function LoadingOverlay({ message = 'LOADING...', submessage }: P
                 </div>
             </div>
 
-            {/* CSS Keyframes */}
             <style>{`
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-
                 @keyframes pistonPump {
-                    0% {
-                        /* DOWN: Inside the hole */
-                        transform: translateY(0px);
-                        background-color: #2b2b2b;
-                        /* Inner shadow = Hole */
-                        box-shadow: inset 2px 2px 5px #181818, inset -2px -2px 5px #3e3e3e;
+                    0% { 
+                        transform: translateY(0px); 
+                        background-color: #1e293b; 
+                        box-shadow: inset 2px 2px 5px #0f172a, inset -2px -2px 5px #334155; 
                     }
-                    12% {
-                        /* UP: Popped out */
-                        /* Lift 20px up */
-                        transform: translateY(-20px); 
-                        background-color: #5d8bf4;    /* Bright Blue Cap */
-                        
-                        /* THE CONNECTED SURFACE TRICK:
-                           The shadow stack now has 20 layers to match the 20px lift.
-                           This ensures no gap appears between the cap and the tray.
-                        */
-                        box-shadow: 
-                            /* The Cylinder Body */
-                            ${generateColumnShadow(cylinderBodyColor)},
-                            /* The Drop Shadow on the floor */
-                            0px 30px 20px rgba(0,0,0,0.4);
+                    12% { 
+                        transform: translateY(-22px); 
+                        background-color: #38bdf8; 
+                        box-shadow: ${generateColumnShadow(cylinderBodyColor)}; 
                     }
-                    35%, 100% {
-                        /* BACK DOWN SLOWLY */
-                        transform: translateY(0px);
-                        background-color: #2b2b2b;
-                        box-shadow: inset 2px 2px 5px #181818, inset -2px -2px 5px #3e3e3e;
+                    35%, 100% { 
+                        transform: translateY(0px); 
+                        background-color: #1e293b; 
+                        box-shadow: inset 2px 2px 5px #0f172a, inset -2px -2px 5px #334155; 
                     }
                 }
             `}</style>
-        </div>
+        </motion.div>
     );
 }

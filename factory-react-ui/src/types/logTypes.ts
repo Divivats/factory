@@ -1,19 +1,10 @@
-﻿// Enhanced Log Analyzer Types - Samsung Industry Grade
-// Location: src/types/logTypes.ts
-
-export interface LogFileNode {
+﻿export interface LogFileNode {
     name: string;
     path: string;
     isDirectory: boolean;
     size?: number;
     modifiedDate?: string;
     children?: LogFileNode[];
-}
-
-export interface LogFileStructure {
-    pcId: number;
-    rootPath: string;
-    files: LogFileNode[];
 }
 
 export interface LogFileContent {
@@ -24,12 +15,6 @@ export interface LogFileContent {
     encoding: string;
 }
 
-export interface BarrelExecutionData {
-    barrelId: string;
-    totalExecutionTime: number;
-    operations: OperationData[];
-}
-
 export interface OperationData {
     operationName: string;
     startTime: number;
@@ -37,6 +22,12 @@ export interface OperationData {
     actualDuration: number;
     idealDuration: number;
     sequence: number;
+}
+
+export interface BarrelExecutionData {
+    barrelId: string;
+    totalExecutionTime: number;
+    operations: OperationData[];
 }
 
 export interface AnalysisResult {
@@ -49,13 +40,12 @@ export interface AnalysisResult {
     };
 }
 
-export interface LogAnalyzerState {
-    selectedPC: number | null;
-    logStructure: LogFileStructure | null;
-    selectedFile: string | null;
-    fileContent: LogFileContent | null;
-    analysisResult: AnalysisResult | null;
-    selectedBarrel: string | null;
-    loading: boolean;
-    error: string | null;
+export interface FactoryPC {
+    pcId: number;
+    pcNumber: number;
+    lineNumber: number;
+    ipAddress: string;
+    isOnline: boolean;
+    modelVersion: string;
+    logFilePath: string;
 }
