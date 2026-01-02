@@ -245,78 +245,98 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
         // ===================== PARSER (UPDATED & ROBUST) =====================
+        private static string ExtractJson(string line)
+        {
+            int first = line.IndexOf('{');
+            int last = line.LastIndexOf('}');
+            if (first >= 0 && last > first)
+                return line.Substring(first, last - first + 1);
+            return null;
+        }
+
+        private static string NormalizeJson(string json)
+        {
+            // Convert single-quote pseudo JSON → valid JSON
+            if (json.Contains('\'') && !json.Contains('"'))
+                json = json.Replace('\'', '"');
+
+            // Fix broken patterns like {"barrelId":1,{ "StartTs":9024.00}
+            json = Regex.Replace(json, @"\{""barrelId"":(\d+),\{", m =>
+            {
+                return $@"{{""barrelId"":{m.Groups[1].Value},";
+            });
+
+            return json;
+        }
+
+        private static int? ReadTimestampMs(JObject json, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                var prop = json.Properties()
+                    .FirstOrDefault(p => p.Name.Equals(key, StringComparison.OrdinalIgnoreCase));
+
+                if (prop != null && double.TryParse(prop.Value.ToString(), out var d))
+                    return (int)Math.Floor(d); // ms → int
+            }
+            return null;
+        }
+
         private object ParseEnhancedLogFile(string content)
         {
             var barrelMap = new Dictionary<string, BarrelData>();
             var startMap = new Dictionary<string, Dictionary<string, int>>();
 
             var lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            int processedLines = 0;
+
+            var opRegex = new Regex(@"\b(Sequence_[^\s]+)\s+(START|END)\b", RegexOptions.IgnoreCase);
 
             foreach (var line in lines)
             {
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 if (line.StartsWith("SEM_LOG_VERSION") || line.StartsWith("DateTime")) continue;
 
-                string scope = "", operationName = "", status = "", dataField = "";
+                // -------- Operation + Status --------
+                string operationName = null;
+                string status = null;
 
-                // Strategy 1: Tab Separated (Standard)
-                var tabColumns = line.Split('\t');
-                if (tabColumns.Length >= 11)
+                var match = opRegex.Match(line);
+                if (match.Success)
                 {
-                    scope = tabColumns[7].Trim();
-                    operationName = tabColumns[8].Trim();
-                    status = tabColumns[9].Trim();
-                    dataField = tabColumns[10].Trim();
+                    operationName = match.Groups[1].Value;
+                    status = match.Groups[2].Value.ToUpperInvariant();
                 }
-                // Strategy 2: Robust Fallback (Space Separated or Mixed)
                 else
                 {
-                    // Find the start of the JSON data to separate meta-data from payload
-                    int jsonStartIndex = line.IndexOf('{');
-                    if (jsonStartIndex == -1)
+                    var tabs = line.Split('\t');
+                    if (tabs.Length >= 11)
                     {
-                        _logger.LogWarning("Skipping line: No JSON data found. Line: {Line}", line);
-                        continue;
+                        operationName = tabs[8].Trim();
+                        status = tabs[9].Trim().ToUpperInvariant();
                     }
-
-                    dataField = line.Substring(jsonStartIndex).Trim();
-                    string metaPart = line.Substring(0, jsonStartIndex).Trim();
-
-                    // Split the meta part by whitespace
-                    var parts = Regex.Split(metaPart, @"\s+");
-
-                    // We expect at least: [Status] [Scope] [OpName] [OpStatus]
-                    // But typically columns: Date Time Machine LogType Lot Recipe Product Status Scope OpName OpStatus
-                    if (parts.Length < 3)
+                    else
                     {
-                        _logger.LogWarning("Skipping line: Not enough columns. Line: {Line}", line);
-                        continue;
+                        continue; // non-sequence logs
                     }
-
-                    // Extract the last 3 parts before JSON
-                    status = parts[parts.Length - 1];       // e.g. START or END
-                    operationName = parts[parts.Length - 2]; // e.g. Sequence_Mask_Pickup
-                    scope = parts[parts.Length - 3];         // e.g. Sequence
                 }
 
-                // Parse JSON Data
+                // -------- JSON --------
+                var jsonText = ExtractJson(line);
+                if (jsonText == null) continue;
+
+                jsonText = NormalizeJson(jsonText);
+
                 JObject json;
-                try
-                {
-                    json = JObject.Parse(dataField);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning("JSON Parse Error: {Message}. Data: {Data}", ex.Message, dataField);
-                    continue;
-                }
+                try { json = JObject.Parse(jsonText); }
+                catch { continue; }
 
-                var barrelId = json["barrelId"]?.ToString();
-                if (string.IsNullOrEmpty(barrelId)) continue;
+                // -------- BarrelId --------
+                var barrelProp = json.Properties()
+                    .FirstOrDefault(p => p.Name.Equals("barrelId", StringComparison.OrdinalIgnoreCase));
 
-                // Use OperationName directly since it already contains the prefix
-                var opKey = operationName;
+                if (barrelProp == null) continue;
+
+                string barrelId = barrelProp.Value.ToString();
 
                 if (!barrelMap.ContainsKey(barrelId))
                 {
@@ -324,54 +344,44 @@ namespace FactoryMonitoringWeb.Controllers
                     startMap[barrelId] = new Dictionary<string, int>();
                 }
 
-                // ---------- START ----------
-                if (status == "START")
+                // -------- Timestamps --------
+                int? startTs = ReadTimestampMs(json, "startTs", "StartTs");
+                int? endTs = ReadTimestampMs(json, "endTs", "EndTs");
+                int idealMs = ReadTimestampMs(json, "idealMs", "IdealTs") ?? 0;
+
+                // -------- START --------
+                if (status == "START" && startTs.HasValue)
                 {
-                    var startTs = json["startTs"]?.Value<int>();
-                    if (startTs != null)
-                    {
-                        startMap[barrelId][opKey] = startTs.Value;
-                        processedLines++;
-                    }
+                    startMap[barrelId][operationName] = startTs.Value;
                 }
-
-                // ---------- END ----------
-                else if (status == "END")
+                // -------- END --------
+                else if (status == "END" && endTs.HasValue)
                 {
-                    if (!startMap[barrelId].ContainsKey(opKey))
-                    {
-                        // _logger.LogWarning("Orphaned END found for {Op} in Barrel {B}", opKey, barrelId);
+                    if (!startMap[barrelId].TryGetValue(operationName, out var start))
                         continue;
-                    }
 
-                    var startTs = startMap[barrelId][opKey];
-                    var endTs = json["endTs"]?.Value<int>();
-
-                    if (endTs == null || endTs < startTs) continue;
+                    if (endTs.Value < start) continue;
 
                     var barrel = barrelMap[barrelId];
 
                     barrel.Operations.Add(new OperationData
                     {
-                        OperationName = opKey,
-                        StartTime = startTs,
+                        OperationName = operationName,
+                        StartTime = start,
                         EndTime = endTs.Value,
-                        ActualDuration = endTs.Value - startTs,
-                        IdealDuration = json["idealMs"]?.Value<int>() ?? 0,
+                        ActualDuration = endTs.Value - start,
+                        IdealDuration = idealMs,
                         Sequence = barrel.Operations.Count + 1
                     });
 
-                    startMap[barrelId].Remove(opKey);
-                    processedLines++;
+                    startMap[barrelId].Remove(operationName);
                 }
             }
 
-            _logger.LogInformation("Parsed {Count} valid operations across {BCount} barrels", processedLines, barrelMap.Count);
-
-            // Calculate total execution time
+            // -------- Total execution time --------
             foreach (var barrel in barrelMap.Values)
             {
-                if (barrel.Operations.Count > 0)
+                if (barrel.Operations.Any())
                 {
                     barrel.TotalExecutionTime =
                         barrel.Operations.Max(o => o.EndTime) -

@@ -176,7 +176,7 @@ export default function AnalysisResultsModal({
                                                 color: '#60a5fa',
                                                 marginBottom: '0.5rem'
                                             }}>
-                                                Operation Timeline - Barrel {selectedBarrel}
+                                                Operation Timeline - Barrel (Actual vs Ideal) {selectedBarrel}
                                             </h3>
                                             <div className="text-mono" style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>
                                                 {selectedBarrelData.operations.length} operations • Total: {selectedBarrelData.totalExecutionTime}ms
