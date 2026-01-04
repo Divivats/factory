@@ -3,345 +3,174 @@
 #include "../include/services/ConfigService.h"
 #include "../include/services/ModelService.h"
 #include "../include/network/HttpClient.h"
-#include "../include/utilities/FileUtils.h"
-#include "../include/utilities/StringUtils.h"
 #include "../include/common/Constants.h"
-#include <fstream>
 #include <filesystem>
-#include <windows.h>
 
-namespace fs = std::filesystem;
-
-CommandExecutor::CommandExecutor(HttpClient* httpClient, ConfigService* configService, ModelService* modelService)
-    : httpClient_(httpClient)
-    , configService_(configService)
-    , modelService_(modelService)
-{
+CommandExecutor::CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc) {
+    httpClient_ = client;
+    configService_ = configSvc;
+    modelService_ = modelSvc;
 }
 
-CommandExecutor::~CommandExecutor()
-{
-    // Don't delete httpClient_, configService_, modelService_ - they're owned by AgentCore
+CommandExecutor::~CommandExecutor() {
 }
 
-void CommandExecutor::ProcessCommands(const json& commands)
-{
-    if (!commands.is_array())
-    {
+void CommandExecutor::ProcessCommands(const json& commands) {
+    if (!commands.is_array()) {
         return;
     }
 
-    for (const auto& cmdJson : commands)
-    {
-        try
-        {
-            Command command;
-            command.commandId = cmdJson.value("commandId", 0);
-            command.commandType = cmdJson.value("commandType", "");
-            command.commandData = cmdJson.value("commandData", "");
-
-            // Execute command in a separate thread to avoid blocking heartbeat
-            Execute(command);
-        }
-        catch (const std::exception& ex)
-        {
-            // Log error but continue processing other commands
-        }
+    int count = commands.size();
+    for (int i = 0; i < count; i++) {
+        ExecuteCommand(commands[i]);
     }
 }
 
-void CommandExecutor::Execute(const Command& command)
-{
-    std::string result;
-    std::string status = "Completed";
+bool CommandExecutor::ExecuteCommand(const json& command) {
+    if (!command.contains("commandId") || !command.contains("commandType")) {
+        return false;
+    }
 
-    try
-    {
-        // Route to appropriate handler based on command type
-        if (command.commandType == "UpdateConfig")
-        {
-            HandleUpdateConfig(command);
+    int commandId = command["commandId"].get<int>();
+    std::string commandType = command["commandType"].get<std::string>();
+
+    CommandResult result;
+    result.commandId = commandId;
+    result.success = false;
+    result.status = AgentConstants::STATUS_FAILED;
+
+    try {
+        // 1. UPDATE CONFIG
+        if (commandType == AgentConstants::COMMAND_UPDATE_CONFIG) {
+            if (command.contains("commandData")) {
+                std::string configContent = command["commandData"].get<std::string>();
+                if (configService_->ApplyConfigFromServer(configContent)) {
+                    result.success = true;
+                    result.status = AgentConstants::STATUS_COMPLETED;
+                    result.resultData = "{\"message\": \"Config updated successfully\"}";
+                }
+            }
         }
-        else if (command.commandType == "ChangeModel")
-        {
-            HandleChangeModel(command);
+        // 2. CHANGE MODEL
+        else if (commandType == AgentConstants::COMMAND_CHANGE_MODEL) {
+            if (command.contains("commandData")) {
+                json data = json::parse(command["commandData"].get<std::string>());
+                if (data.contains("ModelName")) {
+                    std::string modelName = data["ModelName"].get<std::string>();
+                    if (modelService_->ChangeModel(modelName)) {
+                        result.success = true;
+                        result.status = AgentConstants::STATUS_COMPLETED;
+                        result.resultData = "{\"message\": \"Model changed successfully\"}";
+                    }
+                }
+            }
         }
-        else if (command.commandType == "DownloadModel")
-        {
-            HandleDownloadModel(command);
+        // 3. UPLOAD MODEL (Server -> Agent)
+        else if (commandType == AgentConstants::COMMAND_UPLOAD_MODEL) {
+            if (command.contains("commandData")) {
+                json data = json::parse(command["commandData"].get<std::string>());
+                if (modelService_->UploadModelToServer(data)) {
+                    result.success = true;
+                    result.status = AgentConstants::STATUS_COMPLETED;
+                    result.resultData = "{\"message\": \"Model downloaded successfully\"}";
+                }
+            }
         }
-        else if (command.commandType == "DeleteModel")
-        {
-            HandleDeleteModel(command);
+        // 4. DELETE MODEL
+        else if (commandType == AgentConstants::COMMAND_DELETE_MODEL) {
+            if (command.contains("commandData")) {
+                json data = json::parse(command["commandData"].get<std::string>());
+                if (data.contains("ModelName")) {
+                    std::string modelName = data["ModelName"].get<std::string>();
+                    if (modelService_->DeleteModel(modelName)) {
+                        result.success = true;
+                        result.status = AgentConstants::STATUS_COMPLETED;
+                        result.resultData = "{\"message\": \"Model deleted successfully\"}";
+                    }
+                }
+            }
         }
-        else if (command.commandType == "UploadModel")
-        {
-            HandleUploadModel(command);
+        // 5. UPLOAD TO LIBRARY (Agent -> Library URL)
+        else if (commandType == "UploadModelToLib") {
+            if (command.contains("commandData")) {
+                json data = json::parse(command["commandData"].get<std::string>());
+                if (data.contains("ModelName") && data.contains("UploadUrl")) {
+                    std::string modelName = data["ModelName"].get<std::string>();
+                    std::string uploadUrl = data["UploadUrl"].get<std::string>();
+                    if (modelService_->UploadModelToLibrary(modelName, uploadUrl)) {
+                        result.success = true;
+                        result.status = AgentConstants::STATUS_COMPLETED;
+                        result.resultData = "{\"message\": \"Model uploaded to library\"}";
+                    }
+                }
+            }
         }
-        else if (command.commandType == "GetLogFileContent")
-        {
-            HandleGetLogFileContent(command);
+        // 6. GET LOG FILE CONTENT (Server -> Agent Request)
+        else if (commandType == "GetLogFileContent") {
+            if (command.contains("commandData")) {
+                json data = json::parse(command["commandData"].get<std::string>());
+                std::string filePath = data.value("FilePath", "");
+
+                // If path is relative (no drive letter), prepend the log folder path
+                if (filePath.find(':') == std::string::npos) {
+                    std::string logFolder = GetLogFolderPath();
+                    filePath = logFolder + "\\" + filePath;
+                    data["FilePath"] = filePath;
+                }
+
+                // Call LogAnalyzer to read the file
+                std::string contentResult = LogAnalyzer::HandleGetLogFileContent(data.dump());
+
+                // Parse the analyzer result to check success
+                json contentJson = json::parse(contentResult);
+                if (contentJson.value("success", false)) {
+                    result.success = true;
+                    result.status = AgentConstants::STATUS_COMPLETED;
+                    result.resultData = contentResult; // Send the JSON containing file content
+                }
+                else {
+                    result.success = false;
+                    result.status = AgentConstants::STATUS_FAILED;
+                    result.errorMessage = contentJson.value("error", "Unknown error reading log file");
+                }
+            }
         }
-        else
-        {
-            status = "Failed";
-            result = "Unknown command type: " + command.commandType;
-            SendCommandResult(command.commandId, status, result);
+        else {
+            result.errorMessage = "Unknown command type: " + commandType;
         }
     }
-    catch (const std::exception& ex)
-    {
-        status = "Failed";
-        result = std::string("Exception: ") + ex.what();
-        SendCommandResult(command.commandId, status, result);
+    catch (const std::exception& ex) {
+        result.success = false;
+        result.status = AgentConstants::STATUS_FAILED;
+        result.errorMessage = ex.what();
     }
+
+    SendCommandResult(commandId, result);
+    return result.success;
 }
 
-void CommandExecutor::HandleUpdateConfig(const Command& command)
-{
-    try
-    {
-        // Use ConfigService to handle config update
-        if (configService_)
-        {
-            if (configService_->ApplyConfigFromServer(command.commandData))
-            {
-                json result;
-                result["success"] = true;
-                result["message"] = "Config updated successfully";
-                SendCommandResult(command.commandId, "Completed", result.dump());
-            }
-            else
-            {
-                SendCommandResult(command.commandId, "Failed", "Failed to apply config");
-            }
-        }
-        else
-        {
-            SendCommandResult(command.commandId, "Failed", "ConfigService not available");
-        }
-    }
-    catch (const std::exception& ex)
-    {
-        SendCommandResult(command.commandId, "Failed", ex.what());
-    }
-}
+void CommandExecutor::SendCommandResult(int commandId, const CommandResult& result) {
+    if (!httpClient_) return;
 
-void CommandExecutor::HandleChangeModel(const Command& command)
-{
-    try
-    {
-        json cmdJson = json::parse(command.commandData);
-        std::string modelName = cmdJson["ModelName"];
+    try {
+        json request;
+        request["commandId"] = commandId;
+        request["status"] = result.status;
+        request["resultData"] = result.resultData;
 
-        // Use ModelService to handle model change
-        if (modelService_)
-        {
-            if (modelService_->ChangeModel(modelName))
-            {
-                json result;
-                result["success"] = true;
-                result["message"] = "Model changed to: " + modelName;
-                SendCommandResult(command.commandId, "Completed", result.dump());
-            }
-            else
-            {
-                SendCommandResult(command.commandId, "Failed", "Failed to change model");
-            }
-        }
-        else
-        {
-            SendCommandResult(command.commandId, "Failed", "ModelService not available");
-        }
-    }
-    catch (const std::exception& ex)
-    {
-        SendCommandResult(command.commandId, "Failed", ex.what());
-    }
-}
-
-void CommandExecutor::HandleDownloadModel(const Command& command)
-{
-    try
-    {
-        json cmdJson = json::parse(command.commandData);
-        std::string modelName = cmdJson["ModelName"];
-
-        // Use ModelService to upload model to server
-        if (modelService_)
-        {
-            if (modelService_->DownloadModelFromAgent(modelName))
-            {
-                json result;
-                result["success"] = true;
-                result["message"] = "Model uploaded to server";
-                SendCommandResult(command.commandId, "Completed", result.dump());
-            }
-            else
-            {
-                SendCommandResult(command.commandId, "Failed", "Failed to upload model");
-            }
-        }
-        else
-        {
-            SendCommandResult(command.commandId, "Failed", "ModelService not available");
-        }
-    }
-    catch (const std::exception& ex)
-    {
-        SendCommandResult(command.commandId, "Failed", ex.what());
-    }
-}
-
-void CommandExecutor::HandleDeleteModel(const Command& command)
-{
-    try
-    {
-        json cmdJson = json::parse(command.commandData);
-        std::string modelName = cmdJson["ModelName"];
-
-        // Use ModelService to delete model
-        if (modelService_)
-        {
-            if (modelService_->DeleteModel(modelName))
-            {
-                json result;
-                result["success"] = true;
-                result["message"] = "Model deleted: " + modelName;
-                SendCommandResult(command.commandId, "Completed", result.dump());
-            }
-            else
-            {
-                SendCommandResult(command.commandId, "Failed", "Failed to delete model");
-            }
-        }
-        else
-        {
-            SendCommandResult(command.commandId, "Failed", "ModelService not available");
-        }
-    }
-    catch (const std::exception& ex)
-    {
-        SendCommandResult(command.commandId, "Failed", ex.what());
-    }
-}
-
-void CommandExecutor::HandleUploadModel(const Command& command)
-{
-    try
-    {
-        json cmdJson = json::parse(command.commandData);
-
-        // Use ModelService to download and install model
-        if (modelService_)
-        {
-            if (modelService_->UploadModelToServer(cmdJson))
-            {
-                json result;
-                result["success"] = true;
-                result["message"] = "Model downloaded and saved";
-                SendCommandResult(command.commandId, "Completed", result.dump());
-            }
-            else
-            {
-                SendCommandResult(command.commandId, "Failed", "Failed to download model");
-            }
-        }
-        else
-        {
-            SendCommandResult(command.commandId, "Failed", "ModelService not available");
-        }
-    }
-    catch (const std::exception& ex)
-    {
-        SendCommandResult(command.commandId, "Failed", ex.what());
-    }
-}
-
-void CommandExecutor::HandleGetLogFileContent(const Command& command)
-{
-    try
-    {
-        // Parse command to get file path
-        json cmdJson = json::parse(command.commandData);
-        std::string filePath = cmdJson.value("FilePath", "");
-
-        // If path is relative, combine with log folder path
-        if (filePath.find(':') == std::string::npos)  // No drive letter = relative path
-        {
-            std::string logFolder = GetLogFolderPath();
-            filePath = logFolder + "\\" + filePath;
-
-            // Update command data with full path
-            cmdJson["FilePath"] = filePath;
+        // Only add error message if failed
+        if (!result.success && !result.errorMessage.empty()) {
+            request["resultData"] = result.errorMessage; // Or keep in separate field if server expects it
         }
 
-        // Call LogAnalyzer handler
-        std::string result = LogAnalyzer::HandleGetLogFileContent(cmdJson.dump());
-
-        // Check if result indicates success
-        json resultJson = json::parse(result);
-        if (resultJson.value("success", false))
-        {
-            SendCommandResult(command.commandId, "Completed", result);
-        }
-        else
-        {
-            SendCommandResult(command.commandId, "Failed", result);
-        }
-    }
-    catch (const std::exception& ex)
-    {
-        json error;
-        error["success"] = false;
-        error["error"] = ex.what();
-        SendCommandResult(command.commandId, "Failed", error.dump());
-    }
-}
-
-// ========================================================
-
-void CommandExecutor::SendCommandResult(int commandId, const std::string& status, const std::string& resultData)
-{
-    if (!httpClient_)
-    {
-        return;
-    }
-
-    try
-    {
-        json payload;
-        payload["commandId"] = commandId;
-        payload["status"] = status;
-        payload["resultData"] = resultData;
-
-        // Send result back to server
         json response;
-        httpClient_->Post(AgentConstants::ENDPOINT_COMMAND_RESULT, payload, response);
+        httpClient_->Post(AgentConstants::ENDPOINT_COMMAND_RESULT, request, response);
     }
-    catch (const std::exception& ex)
-    {
-        // Silently fail - don't block command execution
+    catch (...) {
+        // Silently fail to avoid crashing on network reporting errors
     }
 }
 
-std::string CommandExecutor::GetConfigFilePath()
-{
-    // This will be set from AgentSettings
-    // For now, return placeholder
-    return "C:\\LAI\\LAI-Operational\\config.ini";
-}
-
-std::string CommandExecutor::GetModelFolderPath()
-{
-    // This will be set from AgentSettings
-    // For now, return placeholder
-    return "C:\\LAI\\LAI-Operational\\Model";
-}
-
-std::string CommandExecutor::GetLogFolderPath()
-{
-    // This will be set from AgentSettings
-    // For now, return placeholder
+std::string CommandExecutor::GetLogFolderPath() {
     return "C:\\LAI\\LAI-WorkData\\Log";
 }

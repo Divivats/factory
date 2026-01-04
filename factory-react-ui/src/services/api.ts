@@ -1,10 +1,10 @@
 import axios from 'axios'
 import type {
-    FactoryPC,
     PCDetails,
     ModelFile,
     Stats,
     ApplyModelRequest,
+    LineModelOption,
 } from '../types'
 
 const api = axios.create({
@@ -125,6 +125,31 @@ export const factoryApi = {
         return response.data
     },
 
+    // Line Model Management
+    getLineAvailableModels: async (lineNumber: number): Promise<LineModelOption[]> => {
+        const { data } = await api.get(`/ModelLibrary/line-available/${lineNumber}`)
+        return data
+    },
+
+    deleteLineModel: async (lineNumber: number, modelName: string) => {
+        const { data } = await api.post('/ModelLibrary/line-delete', { lineNumber, modelName })
+        return data
+    },
+
+    applyModelToTargets: async (data: {
+        modelFileId: number,
+        targetType: string,
+        lineNumber?: number,
+        version?: string,
+        applyImmediately: boolean,
+        checkOnly?: boolean,
+        forceOverwrite?: boolean,
+        modelName?: string
+    }) => {
+        const { data: res } = await api.post('/ModelLibrary/apply', data)
+        return res
+    },
+
     uploadModelToPC: async (pcId: number, file: File) => {
         const formData = new FormData()
         formData.append('modelFile', file)
@@ -145,11 +170,7 @@ export const factoryApi = {
         return data
     },
 
-    // NEW METHOD: Check status of agent download command
-    checkDownloadStatus: async (commandId: number) => {
-        const { data } = await api.get(`/Model/CheckDownloadStatus?commandId=${commandId}`)
-        return data
-    },
+
 
     deleteModelFromPC: async (pcId: number, modelName: string) => {
         const formData = new URLSearchParams()
@@ -168,6 +189,25 @@ export const factoryApi = {
         const { data } = await api.post('/PC/UploadConfig', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         })
+        return data
+    },
+
+    // Agent Download Flow
+    requestDownloadFromPC: async (pcId: number, modelName: string) => {
+        const { data } = await api.post('/ModelLibrary/request-download', { pcId, modelName })
+        return data
+    },
+
+    checkDownloadStatus: async (requestId: string) => {
+        const { data } = await api.get(`/ModelLibrary/check-status/${requestId}`)
+        return data
+    },
+
+    getDownloadUrl: (requestId: string) => `/api/ModelLibrary/serve-download/${requestId}`,
+
+    // Delete PC from database
+    deletePC: async (pcId: number) => {
+        const { data } = await api.post('/PC/DeletePC', null, { params: { pcId } })
         return data
     },
 }

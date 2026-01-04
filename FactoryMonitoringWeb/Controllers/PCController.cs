@@ -298,5 +298,45 @@ namespace FactoryMonitoringWeb.Controllers
                 return Json(new { success = false, error = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Delete a PC and all its associated data from the database
+        /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> DeletePC(int pcId)
+        {
+            try
+            {
+                var pc = await _context.FactoryPCs
+                    .Include(p => p.ConfigFile)
+                    .Include(p => p.Models)
+                    .FirstOrDefaultAsync(p => p.PCId == pcId);
+
+                if (pc == null)
+                {
+                    return Json(new { success = false, message = "PC not found" });
+                }
+
+                // Store PC info for confirmation message
+                var pcInfo = $"PC-{pc.PCNumber} (Line {pc.LineNumber}, IP: {pc.IPAddress})";
+
+                // Delete the PC - cascade deletes will handle related records
+                _context.FactoryPCs.Remove(pc);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"PC deleted: {pcInfo}");
+
+                return Json(new 
+                { 
+                    success = true, 
+                    message = $"Successfully deleted {pcInfo} and all associated data" 
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting PC");
+                return Json(new { success = false, message = $"Error: {ex.Message}" });
+            }
+        }
     }
 }

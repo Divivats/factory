@@ -193,6 +193,12 @@ void AgentCore::WorkerLoop() {
                 // Process commands (non-blocking)
                 if (!commands.empty()) {
                     commandExecutor_->ProcessCommands(commands);
+                    
+                    // IMMEDIATE SYNC after command execution
+                    // Skip heartbeat delay - update database right away
+                    configService_->SyncConfigToServer();
+                    logService_->SyncLogsToServer();
+                    modelService_->SyncModelsToServer();
                 }
 
                 // OPTIMIZATION: Only sync every Nth heartbeat

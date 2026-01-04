@@ -14,6 +14,10 @@ namespace FactoryMonitoringWeb.Controllers
         private readonly ILogger<ModelLibraryController> _logger;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
+        // Static dictionary to track download requests (Prototype only - use Redis/Db in prod)
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DownloadRequestStatus> _downloadRequests 
+            = new System.Collections.Concurrent.ConcurrentDictionary<string, DownloadRequestStatus>();
+
         public ModelLibraryController(FactoryDbContext context, ILogger<ModelLibraryController> logger, IHttpContextAccessor httpContextAccessor)
         {
             _context = context;
@@ -149,15 +153,26 @@ namespace FactoryMonitoringWeb.Controllers
         {
             try
             {
-                if (request.ModelFileId <= 0)
-                {
-                    return BadRequest(new { error = "Invalid model file ID" });
-                }
+                string targetModelName = null;
+                ModelFile modelFile = null;
 
-                var modelFile = await _context.ModelFiles.FindAsync(request.ModelFileId);
-                if (modelFile == null || !modelFile.IsTemplate)
+                if (request.ModelFileId > 0)
                 {
-                    return NotFound(new { error = "Model not found in library" });
+                    modelFile = await _context.ModelFiles.FindAsync(request.ModelFileId);
+                    if (modelFile == null)
+                    {
+                        return NotFound(new { error = "Model not found in library" });
+                    }
+                    targetModelName = modelFile.ModelName;
+                }
+                else if (!string.IsNullOrEmpty(request.ModelName))
+                {
+                    // Local-only mode
+                    targetModelName = request.ModelName;
+                }
+                else
+                {
+                    return BadRequest(new { error = "Either ModelFileId or ModelName must be provided" });
                 }
 
                 // Build query for target PCs
@@ -188,30 +203,113 @@ namespace FactoryMonitoringWeb.Controllers
                     return BadRequest(new { error = "No PCs match the specified criteria" });
                 }
 
-                // Create download URL
-                var baseUrl = GetBaseUrl();
-                var downloadUrl = $"{baseUrl}/api/agent/downloadmodel/{modelFile.ModelFileId}";
+                if (request.CheckOnly)
+                {
+                   var targetPCIds = targetPCs.Select(p => p.PCId).ToList();
+                   var existingModels = await _context.Models
+                        .Where(m => targetPCIds.Contains(m.PCId) && m.ModelName == targetModelName)
+                        .Select(m => m.PCId)
+                        .ToListAsync();
 
-                // Create commands for each target PC
+                   return Ok(new
+                   {
+                       success = true,
+                       checks = true,
+                       totalTargets = targetPCs.Count,
+                       existingCount = existingModels.Count,
+                       existingOnPCIds = existingModels
+                   });
+                }
+
+                // Create download URL only if we have a library file
+                var baseUrl = GetBaseUrl();
+                string downloadUrl = modelFile != null ? $"{baseUrl}/api/agent/downloadmodel/{modelFile.ModelFileId}" : null;
+
+                // Create unique commands for each target PC based on availability
                 foreach (var pc in targetPCs)
                 {
-                    var command = new AgentCommand
+                    // SMART DISTRIBUTION CHECK
+                    // SMART DISTRIBUTION CHECK
+                    // Check if this PC already has this model
+                    var hasModel = await _context.Models.AnyAsync(m => m.PCId == pc.PCId && m.ModelName == targetModelName);
+
+                    AgentCommand command;
+
+                    if (hasModel && !request.ForceOverwrite)
                     {
-                        PCId = pc.PCId,
-                        CommandType = "UploadModel",
-                        CommandData = JsonConvert.SerializeObject(new
+                        // PC already has the model, just tell it to switch
+                        command = new AgentCommand
                         {
-                            ModelFileId = modelFile.ModelFileId,
-                            ModelName = modelFile.ModelName,
-                            FileName = modelFile.FileName,
-                            DownloadUrl = downloadUrl,
-                            ApplyOnUpload = request.ApplyImmediately
-                        }),
-                        Status = "Pending",
-                        CreatedDate = DateTime.Now
-                    };
+                            PCId = pc.PCId,
+                            CommandType = "ChangeModel",
+                            CommandData = JsonConvert.SerializeObject(new
+                            {
+                                ModelName = targetModelName
+                            }),
+                            Status = "Pending",
+                            CreatedDate = DateTime.Now
+                        };
+                    }
+                    else
+                    {
+                        if (modelFile == null)
+                        {
+                            // We are in Local Only mode, but PC doesn't have the model. We can't upload it!
+                            // This shouldn't happen if frontend checks compliance, but safe to skip or error.
+                            continue; 
+                        }
+
+                        // PC needs the model, upload it
+                        command = new AgentCommand
+                        {
+                            PCId = pc.PCId,
+                            CommandType = "UploadModel",
+                            CommandData = JsonConvert.SerializeObject(new
+                            {
+                                ModelFileId = modelFile.ModelFileId,
+                                ModelName = modelFile.ModelName,
+                                FileName = modelFile.FileName,
+                                DownloadUrl = downloadUrl,
+                                ApplyOnUpload = request.ApplyImmediately
+                            }),
+                            Status = "Pending",
+                            CreatedDate = DateTime.Now
+                        };
+                    }
 
                     _context.AgentCommands.Add(command);
+                }
+
+                // Update target model for affected lines
+                // Get distinct line numbers from the target PCs
+                var affectedLines = targetPCs.Select(p => p.LineNumber).Distinct().ToList();
+                
+                foreach (var lineNumber in affectedLines)
+                {
+                    // targetModelName is already defined in the outer scope (line 156)
+                    var lineTarget = await _context.LineTargetModels
+                        .FirstOrDefaultAsync(ltm => ltm.LineNumber == lineNumber);
+                    
+                    if (lineTarget != null)
+                    {
+                        // Update existing target
+                        lineTarget.TargetModelName = targetModelName;
+                        lineTarget.LastUpdated = DateTime.Now;
+                        lineTarget.Notes = $"Updated via {request.TargetType} deployment at {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+                    }
+                    else
+                    {
+                        // Create new target
+                        _context.LineTargetModels.Add(new LineTargetModel
+                        {
+                            LineNumber = lineNumber,
+                            TargetModelName = targetModelName,
+                            SetByUser = "System",
+                            SetDate = DateTime.Now,
+                            LastUpdated = DateTime.Now,
+                            Notes = $"Set via {request.TargetType} deployment at {DateTime.Now:yyyy-MM-dd HH:mm:ss}"
+                        });
+                    }
                 }
 
                 await _context.SaveChangesAsync();
@@ -219,7 +317,7 @@ namespace FactoryMonitoringWeb.Controllers
                 return Ok(new
                 {
                     success = true,
-                    message = $"Model deployment initiated for {targetPCs.Count} PC(s)",
+                    message = $"Model deployment initiated for {targetPCs.Count} PC(s) ({(request.ForceOverwrite ? "Overwrite" : "Smart Dist.")})",
                     affectedPCs = targetPCs.Count,
                     targets = targetPCs.Select(p => new
                     {
@@ -233,6 +331,69 @@ namespace FactoryMonitoringWeb.Controllers
             {
                 _logger.LogError(ex, "Error applying model to targets");
                 return StatusCode(500, new { error = $"Apply failed: {ex.Message}" });
+            }
+        }
+
+        // GET: api/ModelLibrary/line-available/{lineNumber}
+        [HttpGet("line-available/{lineNumber}")]
+        public async Task<ActionResult<IEnumerable<object>>> GetLineAvailableModels(int lineNumber)
+        {
+            try
+            {
+                // 1. Get all PCs in this line
+                var linePCs = await _context.FactoryPCs
+                    .Where(p => p.LineNumber == lineNumber)
+                    .Select(p => p.PCId)
+                    .ToListAsync();
+                
+                int totalPCs = linePCs.Count;
+                
+                if (totalPCs == 0) return Ok(new List<object>());
+
+                // 2. Get all Library models
+                var libraryModels = await _context.ModelFiles
+                    .Where(m => m.IsTemplate && m.IsActive)
+                    .Select(m => new { m.ModelName, m.ModelFileId })
+                    .ToListAsync();
+
+                // 3. Get all On-PC models for this line
+                var onPcModels = await _context.Models
+                    .Where(m => linePCs.Contains(m.PCId))
+                    .Select(m => new { m.ModelName, m.PCId })
+                    .ToListAsync();
+
+                // 4. Aggregate unique model names
+                var allModelNames = libraryModels.Select(m => m.ModelName)
+                    .Union(onPcModels.Select(m => m.ModelName))
+                    .Distinct()
+                    .OrderBy(n => n)
+                    .ToList();
+
+                var result = new List<object>();
+
+                foreach (var name in allModelNames)
+                {
+                    var libModel = libraryModels.FirstOrDefault(m => m.ModelName == name);
+                    var pcIdsWithModel = onPcModels.Where(m => m.ModelName == name).Select(m => m.PCId).Distinct().ToList();
+                    
+                    result.Add(new
+                    {
+                        ModelName = name,
+                        ModelFileId = libModel?.ModelFileId, // Null if not in library
+                        InLibrary = libModel != null,
+                        AvailableOnPCIds = pcIdsWithModel,
+                        TotalPCsInLine = totalPCs,
+                        ComplianceCount = pcIdsWithModel.Count,
+                        ComplianceText = $"{pcIdsWithModel.Count}/{totalPCs} Units"
+                    });
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting available models for line {lineNumber}");
+                return StatusCode(500, new { error = "Failed to retrieve line models" });
             }
         }
 
@@ -281,9 +442,168 @@ namespace FactoryMonitoringWeb.Controllers
                 return StatusCode(500);
             }
         }
+        [HttpPost("line-delete")]
+        public async Task<ActionResult> DeleteLineModel([FromBody] DeleteLineModelRequest request)
+        {
+            try
+            {
+                var linePCs = await _context.FactoryPCs
+                    .Where(p => p.LineNumber == request.LineNumber)
+                    .ToListAsync();
+
+                if (!linePCs.Any()) return NotFound(new { error = "Line not found" });
+
+                // Find PCs that actually have this model
+                var pcIds = linePCs.Select(p => p.PCId).ToList();
+                var pcsWithModel = await _context.Models
+                    .Where(m => pcIds.Contains(m.PCId) && m.ModelName == request.ModelName)
+                    .Select(m => m.PCId)
+                    .ToListAsync();
+
+                if (!pcsWithModel.Any()) return Ok(new { success = true, message = "Model not found on any PC in this line" });
+
+                foreach (var pcId in pcsWithModel)
+                {
+                    var command = new AgentCommand
+                    {
+                        PCId = pcId,
+                        CommandType = "DeleteModel",
+                        CommandData = JsonConvert.SerializeObject(new { ModelName = request.ModelName }),
+                        Status = "Pending",
+                        CreatedDate = DateTime.Now
+                    };
+                    _context.AgentCommands.Add(command);
+                }
+
+                await _context.SaveChangesAsync();
+                return Ok(new { success = true, message = $"Delete command sent to {pcsWithModel.Count} PCs" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting line model");
+                return StatusCode(500, new { error = "Failed to delete line model" });
+            }
+        }
+
+
+        // ==========================================
+        // AGENT TO SERVER DOWNLOAD FLOW
+        // ==========================================
+
+        [HttpPost("request-download")]
+        public async Task<ActionResult> RequestDownloadFromPC([FromBody] DownloadFromPCRequest request)
+        {
+            try
+            {
+                var requestId = Guid.NewGuid().ToString();
+                // Use Relative URL because Agent's HttpClient is already connected to the server and expects a path
+                var uploadUrl = $"/api/ModelLibrary/receive-upload/{requestId}";
+
+                var command = new AgentCommand
+                {
+                    PCId = request.PCId,
+                    CommandType = "UploadModelToLib",
+                    CommandData = JsonConvert.SerializeObject(new
+                    {
+                        ModelName = request.ModelName,
+                        UploadUrl = uploadUrl
+                    }),
+                    Status = "Pending",
+                    CreatedDate = DateTime.Now
+                };
+
+                _context.AgentCommands.Add(command);
+                await _context.SaveChangesAsync();
+
+                _downloadRequests[requestId] = new DownloadRequestStatus { Status = "Pending", CreatedAt = DateTime.Now };
+
+                return Ok(new { requestId, status = "Pending" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error requesting download from PC");
+                return StatusCode(500, new { error = "Failed to request download" });
+            }
+        }
+
+        [HttpPost("receive-upload/{requestId}")]
+        [RequestSizeLimit(500 * 1024 * 1024)] // 500MB limit
+        public async Task<ActionResult> ReceiveUploadFromAgent(string requestId, [FromForm] IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0) return BadRequest("No file uploaded");
+
+                if (!_downloadRequests.ContainsKey(requestId)) return NotFound("Invalid Request ID");
+
+                var tempPath = Path.Combine(Path.GetTempPath(), "FactoryDownloads");
+                Directory.CreateDirectory(tempPath);
+                var filePath = Path.Combine(tempPath, $"{requestId}.zip");
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                _downloadRequests[requestId] = new DownloadRequestStatus 
+                { 
+                    Status = "Ready", 
+                    FilePath = filePath, 
+                    FileName = file.FileName,
+                    CreatedAt = DateTime.Now 
+                };
+
+                return Ok(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error receiving agent upload");
+                _downloadRequests[requestId] = new DownloadRequestStatus { Status = "Failed", Error = ex.Message, CreatedAt = DateTime.Now };
+                return StatusCode(500, "Upload failed");
+            }
+        }
+
+        [HttpGet("check-status/{requestId}")]
+        public ActionResult CheckDownloadStatus(string requestId)
+        {
+            if (!_downloadRequests.TryGetValue(requestId, out var status))
+            {
+                return NotFound(new { error = "Request not found" });
+            }
+            return Ok(new { status = status.Status, error = status.Error });
+        }
+
+        [HttpGet("serve-download/{requestId}")]
+        public ActionResult ServeDownload(string requestId)
+        {
+            if (!_downloadRequests.TryGetValue(requestId, out var status) || status.Status != "Ready" || !System.IO.File.Exists(status.FilePath))
+            {
+                return NotFound("File not ready or expired");
+            }
+
+            var bytes = System.IO.File.ReadAllBytes(status.FilePath);
+            // Cleanup? Maybe keep for a bit. For now, serve it.
+            return File(bytes, "application/zip", status.FileName);
+        }
+
     }
 
-    // Request DTOs
+    // Models under namespace
+    public class DownloadRequestStatus 
+    {
+        public string Status { get; set; } // Pending, Ready, Failed
+        public string FilePath { get; set; }
+        public string FileName { get; set; }
+        public string Error { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    public class DownloadFromPCRequest
+    {
+        public int PCId { get; set; }
+        public string ModelName { get; set; }
+    }
+
     public class ApplyModelRequest
     {
         public int ModelFileId { get; set; }
@@ -292,6 +612,16 @@ namespace FactoryMonitoringWeb.Controllers
         public int? LineNumber { get; set; }
         public List<int>? SelectedPCIds { get; set; }
         public bool ApplyImmediately { get; set; } = true;
+        public bool CheckOnly { get; set; } = false;
+        public bool ForceOverwrite { get; set; } = false;
+        public string? ModelName { get; set; }
     }
+
+    public class DeleteLineModelRequest
+    {
+        public int LineNumber { get; set; }
+        public string ModelName { get; set; }
+    }
+
 }
 

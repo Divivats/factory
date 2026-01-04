@@ -14,6 +14,7 @@ namespace FactoryMonitoringWeb.Data
         public DbSet<ModelFile> ModelFiles { get; set; }
         public DbSet<ModelDistribution> ModelDistributions { get; set; }
         public DbSet<AgentCommand> AgentCommands { get; set; }
+        public DbSet<LineTargetModel> LineTargetModels { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
