@@ -1,5 +1,6 @@
-﻿import { X, Download, BarChart3 } from 'lucide-react';
-import { motion } from 'framer-motion';
+﻿import { useEffect, useState } from 'react';
+import { X, Download, BarChart3 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { LogFileContent } from '../../types/logTypes';
 
 interface Props {
@@ -19,6 +20,20 @@ export default function LogFileViewerModal({
     analyzing,
     downloading
 }: Props) {
+    const [showEscTooltip, setShowEscTooltip] = useState(false);
+
+    // Handle Escape key to close modal
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                e.stopPropagation();
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
+
     return (
         <motion.div
             initial={{ opacity: 0 }}
@@ -50,7 +65,6 @@ export default function LogFileViewerModal({
                         <h2 style={{
                             fontSize: '1.25rem',
                             fontWeight: 700,
-                            // CHANGED: Softer Gradient (Blue to Green) instead of Neon
                             background: 'linear-gradient(135deg, #60a5fa, #4ade80)',
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
@@ -62,18 +76,66 @@ export default function LogFileViewerModal({
                             {fileContent.filePath}
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="btn btn-secondary btn-icon"
-                        style={{
-                            transition: 'all 0.2s',
-                            transform: 'scale(1)'
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-                    >
-                        <X size={20} />
-                    </button>
+
+                    {/* CLOSE BUTTON WITH ESC HINT */}
+                    <div style={{ position: 'relative' }}>
+                        <button
+                            onClick={onClose}
+                            className="btn btn-secondary"
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                paddingLeft: '0.75rem',
+                                paddingRight: '0.5rem'
+                            }}
+                            onMouseEnter={() => setShowEscTooltip(true)}
+                            onMouseLeave={() => setShowEscTooltip(false)}
+                        >
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dim)' }}>Close</span>
+                            <div style={{
+                                fontSize: '0.65rem',
+                                fontWeight: 700,
+                                color: 'var(--text-muted)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '4px',
+                                padding: '0 4px',
+                                background: 'var(--bg-app)',
+                                fontFamily: 'system-ui',
+                                height: '18px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}>
+                                ESC
+                            </div>
+                        </button>
+
+                        <AnimatePresence>
+                            {showEscTooltip && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0 }}
+                                    style={{
+                                        position: 'absolute',
+                                        top: '115%',
+                                        right: 0,
+                                        background: '#1e293b',
+                                        border: '1px solid #334155',
+                                        color: '#f8fafc',
+                                        padding: '0.4rem 0.8rem',
+                                        borderRadius: '4px',
+                                        fontSize: '0.75rem',
+                                        whiteSpace: 'nowrap',
+                                        zIndex: 50,
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                                    }}
+                                >
+                                    Press <b style={{ color: '#fff' }}>Esc</b> to close
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
                 </div>
 
                 <div className="modal-body" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
@@ -93,10 +155,8 @@ export default function LogFileViewerModal({
                             onClick={onVisualize}
                             disabled={analyzing}
                             style={{
-                                // CHANGED: Softer Matte Blue Background
                                 background: '#3b82f6',
                                 border: '1px solid #2563eb',
-                                // CHANGED: Removed Neon Glow, replaced with subtle shadow
                                 boxShadow: analyzing ? 'none' : '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
                             }}
                         >

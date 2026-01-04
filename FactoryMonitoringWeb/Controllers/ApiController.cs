@@ -150,7 +150,7 @@ namespace FactoryMonitoringWeb.Controllers
                     pc.IPAddress,
                     pc.ModelVersion,
                     pc.ConfigFilePath,
-                    pc.LogFilePath,
+                    pc.LogFolderPath,
                     pc.ModelFolderPath,
                     pc.IsOnline,
                     pc.IsApplicationRunning,

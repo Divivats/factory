@@ -1,5 +1,5 @@
-﻿import { useState } from 'react';
-import { X, BarChart3, Minimize2 } from 'lucide-react';
+﻿import { useState, useCallback, useEffect } from 'react';
+import { X, BarChart3, Minimize2, Maximize2, Minimize, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BarrelExecutionChart from './BarrelExecutionChart';
 import OperationGanttChart from './OperationGanttChart';
@@ -12,6 +12,29 @@ interface Props {
     onClose: () => void;
 }
 
+const ChartLoadingOverlay = ({ message }: { message: string }) => (
+    <div style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-panel)',
+    }}>
+        <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        >
+            <Loader2 size={32} color="#60a5fa" style={{ marginBottom: '1rem' }} />
+        </motion.div>
+        <span style={{ fontSize: '0.9rem', fontFamily: 'JetBrains Mono, monospace', color: '#94a3b8' }}>
+            {message}
+        </span>
+    </div>
+);
+
 export default function AnalysisResultsModal({
     result,
     selectedBarrel,
@@ -19,14 +42,100 @@ export default function AnalysisResultsModal({
     onClose
 }: Props) {
     const [isMinimized, setIsMinimized] = useState(false);
+    const [expandedView, setExpandedView] = useState<'none' | 'barrel' | 'gantt'>('none');
+
+    const [isTransitioning, setIsTransitioning] = useState(false);
+    const [isChartReady, setIsChartReady] = useState(false);
+    const [showEscTooltip, setShowEscTooltip] = useState(false);
+
     const selectedBarrelData = selectedBarrel ? result.barrels.find(b => b.barrelId === selectedBarrel) : null;
+
+    const handleViewChange = (view: 'barrel' | 'gantt') => {
+        setIsTransitioning(true);
+        setIsChartReady(false);
+        setExpandedView(prev => prev === view ? 'none' : view);
+    };
+
+    const handleCloseGantt = () => {
+        if (expandedView === 'gantt') {
+            handleViewChange('gantt');
+        }
+        onBarrelClick('');
+    };
+
+    const handleAnimationComplete = () => {
+        setTimeout(() => {
+            setIsTransitioning(false);
+        }, 50);
+    };
+
+    const handleChartReady = useCallback(() => {
+        requestAnimationFrame(() => {
+            setIsChartReady(true);
+        });
+    }, []);
+
+    // Handle Escape key to close graphs
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                e.stopPropagation();
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
+
+    const showLoader = isTransitioning || !isChartReady;
+
+    // Common style for the control buttons with borders
+    const btnStyle = {
+        padding: '0.35rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: '1px solid #334155',
+        borderRadius: '6px',
+        background: 'transparent',
+        color: '#94a3b8',
+        cursor: 'pointer',
+        transition: 'all 0.2s'
+    };
+
+    // Card style override to prevent global hover effects (bouncing)
+    const cardStyle = {
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column' as const,
+        padding: 0,
+        overflow: 'hidden',
+        border: '1px solid var(--border)',
+        transform: 'none', // Override potential hover transforms
+        transition: 'none' // Override potential hover transitions
+    };
+
+    // Unified Header Style for both panes
+    const paneHeaderStyle = {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '0.5rem 1rem',
+        background: 'rgba(30, 41, 59, 0.3)', // Consistent background
+        borderBottom: '1px solid var(--border)',
+        flexShrink: 0
+    };
 
     return (
         <AnimatePresence>
             {isMinimized ? (
                 <motion.button
                     layoutId="analysis-window"
-                    onClick={() => setIsMinimized(false)}
+                    onClick={() => {
+                        setIsTransitioning(true);
+                        setIsChartReady(false);
+                        setIsMinimized(false);
+                    }}
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
@@ -35,15 +144,12 @@ export default function AnalysisResultsModal({
                         position: 'fixed',
                         bottom: '2rem',
                         right: '2rem',
-                        // CHANGED: Matte Royal Blue instead of Neon Gradient
                         background: '#3b82f6',
-                        // CHANGED: Softer border
                         border: '1px solid #2563eb',
                         borderRadius: '12px',
                         padding: '1rem 1.5rem',
                         cursor: 'pointer',
                         zIndex: 1000,
-                        // CHANGED: Removed colored glow, used standard shadow
                         boxShadow: '0 8px 20px rgba(0, 0, 0, 0.3)'
                     }}
                 >
@@ -61,6 +167,7 @@ export default function AnalysisResultsModal({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3, ease: 'linear' }}
+                    onAnimationComplete={handleAnimationComplete}
                     style={{
                         position: 'fixed',
                         inset: 0,
@@ -70,128 +177,205 @@ export default function AnalysisResultsModal({
                         flexDirection: 'column',
                         overflow: 'hidden'
                     }}
+                    // Note: Removed "modal-overlay" class to fix width issue, added graph-overlay for detection
+                    className="graph-overlay"
                 >
-                    {/* Header */}
+                    {/* Compact Main Header */}
                     <div style={{
-                        padding: '1rem 2rem',
+                        padding: '0.5rem 1rem',
                         background: 'var(--bg-panel)',
-                        borderBottom: '2px solid var(--border)',
+                        borderBottom: '1px solid var(--border)',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        flexShrink: 0
+                        flexShrink: 0,
+                        height: '48px'
                     }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            {/* CHANGED: Softer Icon Color */}
-                            <BarChart3 size={24} color="#60a5fa" />
-                            <div>
-                                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
-                                    Log Analysis Results
-                                </h2>
-                                <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginTop: '0.25rem' }}>
-                                    {result.barrels.length} barrels analyzed
-                                </div>
-                            </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <BarChart3 size={20} color="#60a5fa" />
+                            <h2 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>
+                                Log Analysis Results
+                            </h2>
                         </div>
-                        <div style={{ display: 'flex', gap: '0.75rem' }}>
-                            <button className="btn btn-secondary btn-icon" onClick={() => setIsMinimized(true)}>
-                                <Minimize2 size={20} />
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button className="btn btn-secondary btn-icon" onClick={() => setIsMinimized(true)} style={btnStyle}>
+                                <Minimize2 size={16} />
                             </button>
-                            <button className="btn btn-secondary btn-icon" onClick={onClose}>
-                                <X size={20} />
-                            </button>
+
+                            {/* CLOSE BUTTON WITH ESC HINT */}
+                            <div style={{ position: 'relative' }}>
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={onClose}
+                                    style={{ ...btnStyle, gap: '0.5rem', paddingRight: '0.5rem' }}
+                                    onMouseEnter={() => setShowEscTooltip(true)}
+                                    onMouseLeave={() => setShowEscTooltip(false)}
+                                >
+                                    <div style={{
+                                        fontSize: '0.65rem',
+                                        fontWeight: 700,
+                                        color: 'var(--text-muted)',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: '4px',
+                                        padding: '0 4px',
+                                        background: 'var(--bg-app)',
+                                        fontFamily: 'system-ui',
+                                        height: '18px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                        }}>
+                                        </div>
+                                        <X size={16} />
+                                </button>
+
+                                <AnimatePresence>
+                                    {showEscTooltip && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 5 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0 }}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '115%',
+                                                right: 0,
+                                                background: '#1e293b',
+                                                border: '1px solid #334155',
+                                                color: '#f8fafc',
+                                                padding: '0.4rem 0.8rem',
+                                                borderRadius: '4px',
+                                                fontSize: '0.75rem',
+                                                whiteSpace: 'nowrap',
+                                                zIndex: 50,
+                                                boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                                            }}
+                                        >
+                                            Press <b style={{ color: '#fff' }}>Esc</b> to close
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
                         </div>
                     </div>
 
-                    {/* ... Rest of the component (Charts) remains the same ... */}
-                    {/* Command Center Layout - Split Pane */}
+                    {/* Charts Layout */}
                     <div style={{
                         flex: 1,
                         display: 'flex',
-                        gap: '1rem',
-                        padding: '1rem',
-                        overflow: 'hidden'
+                        gap: '0.75rem',
+                        padding: '0.75rem',
+                        overflow: 'hidden',
+                        background: '#0f172a'
                     }}>
-                        {/* Left: Barrel Execution Chart - 40% */}
-                        <div style={{
-                            width: '40%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            overflow: 'hidden'
-                        }}>
-                            <div className="card" style={{
-                                padding: '1.5rem',
-                                height: '100%',
-                                display: 'flex',
-                                flexDirection: 'column'
-                            }}>
-                                <h3 style={{
-                                    fontSize: '1.1rem',
-                                    fontWeight: 600,
-                                    // CHANGED: Softer primary color
-                                    color: '#60a5fa',
-                                    marginBottom: '1rem',
-                                    flexShrink: 0
-                                }}>
-                                    Barrel Execution Times
-                                </h3>
-                                <div style={{ flex: 1, minHeight: 0 }}>
-                                    <BarrelExecutionChart
-                                        barrels={result.barrels}
-                                        selectedBarrel={selectedBarrel}
-                                        onBarrelClick={onBarrelClick}
-                                    />
+                        {/* Left: Barrel Execution Chart */}
+                        <motion.div
+                            animate={{
+                                width: expandedView === 'barrel' ? '100%' : expandedView === 'gantt' ? '0%' : '40%',
+                                opacity: expandedView === 'gantt' ? 0 : 1
+                            }}
+                            transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+                            onAnimationComplete={handleAnimationComplete}
+                            style={{
+                                display: expandedView === 'gantt' ? 'none' : 'flex',
+                                flexDirection: 'column',
+                                overflow: 'hidden'
+                            }}
+                        >
+                            <div className="card" style={cardStyle}>
+                                {/* Compact Chart Header */}
+                                <div style={paneHeaderStyle}>
+                                    <div>
+                                        <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#60a5fa', margin: 0 }}>
+                                            Barrel Execution Times
+                                        </h3>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '2px', fontFamily: 'JetBrains Mono, monospace' }}>
+                                            {result.barrels.length} barrels analyzed
+                                        </div>
+                                    </div>
+                                    <button
+                                        className="btn btn-secondary btn-icon"
+                                        onClick={() => handleViewChange('barrel')}
+                                        title={expandedView === 'barrel' ? 'Restore' : 'Maximize'}
+                                        style={btnStyle}
+                                    >
+                                        {expandedView === 'barrel' ? <Minimize size={16} /> : <Maximize2 size={16} />}
+                                    </button>
+                                </div>
+
+                                <div style={{ flex: 1, minHeight: 0, position: 'relative', padding: '1rem' }}>
+                                    {showLoader && <ChartLoadingOverlay message="Resizing Layout..." />}
+
+                                    {!isTransitioning && (
+                                        <BarrelExecutionChart
+                                            barrels={result.barrels}
+                                            selectedBarrel={selectedBarrel}
+                                            onBarrelClick={onBarrelClick}
+                                            onReady={handleChartReady}
+                                        />
+                                    )}
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
 
-                        {/* Right: Gantt Chart - 60% */}
-                        <div style={{
-                            width: '60%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            overflow: 'hidden'
-                        }}>
+                        {/* Right: Gantt Chart */}
+                        <motion.div
+                            animate={{
+                                width: expandedView === 'gantt' ? '100%' : expandedView === 'barrel' ? '0%' : '60%',
+                                opacity: expandedView === 'barrel' ? 0 : 1
+                            }}
+                            transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+                            onAnimationComplete={handleAnimationComplete}
+                            style={{
+                                display: expandedView === 'barrel' ? 'none' : 'flex',
+                                flexDirection: 'column',
+                                overflow: 'hidden'
+                            }}
+                        >
                             {selectedBarrel && selectedBarrelData ? (
-                                <div className="card" style={{
-                                    padding: '1.5rem',
-                                    height: '100%',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    // CHANGED: Softer border
-                                    border: '1px solid #3b82f6'
-                                }}>
-                                    <div style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        marginBottom: '1rem',
-                                        flexShrink: 0
-                                    }}>
+                                <div className="card" style={cardStyle}>
+                                    {/* Compact Chart Header - Same Style as Left */}
+                                    <div style={paneHeaderStyle}>
                                         <div>
                                             <h3 style={{
-                                                fontSize: '1.1rem',
+                                                fontSize: '0.95rem',
                                                 fontWeight: 600,
-                                                // CHANGED: Softer primary color
                                                 color: '#60a5fa',
-                                                marginBottom: '0.5rem'
+                                                margin: 0
                                             }}>
-                                                Operation Timeline - Barrel (Actual vs Ideal) {selectedBarrel}
+                                                Timeline: Barrel {selectedBarrel}
                                             </h3>
-                                            <div className="text-mono" style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+                                            <div className="text-mono" style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '2px' }}>
                                                 {selectedBarrelData.operations.length} operations • Total: {selectedBarrelData.totalExecutionTime}ms
                                             </div>
                                         </div>
-                                        <button className="btn btn-secondary" onClick={() => onBarrelClick('')}>
-                                            Close Timeline
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button
+                                                className="btn btn-secondary btn-icon"
+                                                onClick={() => handleViewChange('gantt')}
+                                                title={expandedView === 'gantt' ? 'Restore' : 'Maximize'}
+                                                style={btnStyle}
+                                            >
+                                                {expandedView === 'gantt' ? <Minimize size={16} /> : <Maximize2 size={16} />}
+                                            </button>
+                                            <button
+                                                className="btn btn-secondary btn-icon"
+                                                onClick={handleCloseGantt}
+                                                style={btnStyle}
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        </div>
                                     </div>
 
-                                    <div style={{ flex: 1, minHeight: 0 }}>
-                                        <OperationGanttChart
-                                            operations={selectedBarrelData.operations}
-                                            barrelId={selectedBarrel}
-                                        />
+                                    <div style={{ flex: 1, minHeight: 0, position: 'relative', padding: '1rem' }}>
+                                        {showLoader && <ChartLoadingOverlay message="Rendering Timeline..." />}
+
+                                        {!isTransitioning && (
+                                            <OperationGanttChart
+                                                operations={selectedBarrelData.operations}
+                                                barrelId={selectedBarrel}
+                                                onReady={handleChartReady}
+                                            />
+                                        )}
                                     </div>
                                 </div>
                             ) : (
@@ -201,7 +385,9 @@ export default function AnalysisResultsModal({
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    background: 'var(--bg-panel)'
+                                    background: 'var(--bg-panel)',
+                                    transform: 'none',
+                                    transition: 'none'
                                 }}>
                                     <div style={{ textAlign: 'center', color: 'var(--text-dim)' }}>
                                         <BarChart3 size={48} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
@@ -211,7 +397,7 @@ export default function AnalysisResultsModal({
                                     </div>
                                 </div>
                             )}
-                        </div>
+                        </motion.div>
                     </div>
                 </motion.div>
             )}

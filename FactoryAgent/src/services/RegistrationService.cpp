@@ -1,12 +1,8 @@
 #include "../include/services/RegistrationService.h"
+#include "../include/services/LogService.h"
 #include "../include/common/Constants.h"
 #include "../include/utilities/NetworkUtils.h"
-
-/*
- * RegistrationService.cpp
- * Implementation of registration functionality
- * Follows SRP - handles ONLY registration logic
- */
+namespace fs = std::filesystem;
 
 RegistrationService::RegistrationService() {
 }
@@ -44,19 +40,25 @@ json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
     // Use the IP address stored in settings (detected in main.cpp)
     // instead of trying to detect it again (which fails if Winsock isn't ready)
     if (settings->ipAddress.empty()) {
-        request["ipAddress"] = NetworkUtils::GetIPAddress(); // Fallback
+        request["ipAddress"] = NetworkUtils::GetIPAddress();
     }
     else {
         request["ipAddress"] = settings->ipAddress;
     }
 
     request["configFilePath"] = settings->configFilePath;
-    request["logFilePath"] = settings->logFilePath;
+    request["logFolderPath"] = settings->logFolderPath;
     request["modelFolderPath"] = settings->modelFolderPath;
     request["modelVersion"] = settings->modelVersion;
 
     std::string exeName = NetworkUtils::ConvertWStringToString(settings->exeName);
     request["exeName"] = exeName;
+
+    if (!settings->logFolderPath.empty() && fs::exists(settings->logFolderPath)) {
+        fs::path rootPath(settings->logFolderPath);
+        json structure = LogService::BuildDirectoryTree(rootPath, rootPath);
+        request["logStructureJson"] = structure.dump();
+    }
     return request;
 }
 

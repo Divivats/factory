@@ -31,17 +31,20 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
                 animate={{ opacity: 1 }}
                 style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-dim)' }}
             >
-                <div style={{
-                    display: 'inline-block',
-                    width: '40px',
-                    height: '40px',
-                    border: '4px solid var(--border)',
-                    borderTopColor: '#3b82f6',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite',
-                    marginBottom: '1rem'
-                }} />
+                <div
+                    style={{
+                        display: 'inline-block',
+                        width: '40px',
+                        height: '40px',
+                        border: '4px solid var(--border)',
+                        borderTopColor: '#3b82f6',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                        marginBottom: '1rem'
+                    }}
+                />
                 <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>Loading PCs...</p>
+
                 <style>{`
                     @keyframes spin {
                         to { transform: rotate(360deg); }
@@ -53,18 +56,23 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
 
     return (
         <div className="card" style={{ padding: 0, overflow: 'hidden', height: '100%' }}>
-            <div style={{
-                padding: '1.5rem',
-                borderBottom: '2px solid var(--border)',
-                background: 'linear-gradient(135deg, var(--bg-panel), var(--bg-card))'
-            }}>
-                <h2 style={{
-                    fontSize: '1.2rem',
-                    fontWeight: 700,
-                    color: '#60a5fa',
-                    margin: 0,
-                    marginBottom: '0.5rem'
-                }}>
+            {/* Header */}
+            <div
+                style={{
+                    padding: '1.5rem',
+                    borderBottom: '2px solid var(--border)',
+                    background: 'linear-gradient(135deg, var(--bg-panel), var(--bg-card))'
+                }}
+            >
+                <h2
+                    style={{
+                        fontSize: '1.2rem',
+                        fontWeight: 700,
+                        color: '#60a5fa',
+                        margin: 0,
+                        marginBottom: '0.5rem'
+                    }}
+                >
                     Select PC to Analyze Logs
                 </h2>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', margin: 0 }}>
@@ -72,6 +80,7 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
                 </p>
             </div>
 
+            {/* List */}
             <div style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
                 {Object.entries(groupedPCs).map(([version, lines], versionIndex) => (
                     <motion.div
@@ -80,23 +89,21 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: versionIndex * 0.1 }}
                     >
-                        <div style={{
-                            padding: '1rem 1.5rem',
-                            background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.15), transparent)',
-                            borderBottom: '1px solid var(--border)',
-                            position: 'sticky',
-                            top: 0,
-                            zIndex: 10,
-                            backdropFilter: 'blur(12px)'
-                        }}>
+                        {/* Version Header */}
+                        <div
+                            style={{
+                                padding: '1rem 1.5rem',
+                                background: 'linear-gradient(90deg, rgba(59,130,246,0.15), transparent)',
+                                borderBottom: '1px solid var(--border)',
+                                position: 'sticky',
+                                top: 0,
+                                zIndex: 10,
+                                backdropFilter: 'blur(12px)'
+                            }}
+                        >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                 <Box size={18} color="#3b82f6" />
-                                <span style={{
-                                    fontSize: '1rem',
-                                    fontWeight: 700,
-                                    color: 'var(--text-main)',
-                                    letterSpacing: '0.5px'
-                                }}>
+                                <span style={{ fontSize: '1rem', fontWeight: 700 }}>
                                     Version {version}
                                 </span>
                                 <span className="badge badge-primary" style={{ fontSize: '0.7rem' }}>
@@ -105,23 +112,23 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
                             </div>
                         </div>
 
+                        {/* Lines */}
                         {Object.entries(lines).map(([line, linePCs]) => (
                             <div key={line}>
-                                <div style={{
-                                    padding: '0.75rem 1.5rem 0.75rem 3rem',
-                                    background: 'var(--bg-hover)',
-                                    borderBottom: '1px solid var(--border)',
-                                    position: 'sticky',
-                                    top: 52,
-                                    zIndex: 9
-                                }}>
+                                {/* Line Header */}
+                                <div
+                                    style={{
+                                        padding: '0.75rem 1.5rem 0.75rem 3rem',
+                                        background: 'var(--bg-hover)',
+                                        borderBottom: '1px solid var(--border)',
+                                        position: 'sticky',
+                                        top: 52,
+                                        zIndex: 9
+                                    }}
+                                >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                         <Activity size={16} color="var(--success)" />
-                                        <span style={{
-                                            fontSize: '0.9rem',
-                                            fontWeight: 600,
-                                            color: 'var(--text-main)'
-                                        }}>
+                                        <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
                                             Line {line}
                                         </span>
                                         <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>
@@ -130,65 +137,66 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
                                     </div>
                                 </div>
 
+                                {/* PCs */}
                                 {linePCs.map((pc, index) => (
                                     <motion.div
                                         key={pc.pcId}
                                         initial={{ opacity: 0, x: -20 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         transition={{ delay: index * 0.05 }}
-                                        whileHover={{ x: 8 }}
                                         onClick={() => onSelectPC(pc)}
                                         style={{
                                             padding: '1rem 1.5rem 1rem 5rem',
                                             borderBottom: '1px solid var(--border)',
                                             cursor: 'pointer',
-                                            transition: 'all 0.2s',
                                             display: 'flex',
                                             alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            background: 'transparent'
+                                            justifyContent: 'space-between'
                                         }}
                                         onMouseEnter={(e) => {
-                                            (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)';
+                                            e.currentTarget.style.background =
+                                                'rgba(59, 130, 246, 0.05)';
                                         }}
                                         onMouseLeave={(e) => {
-                                            (e.currentTarget as HTMLElement).style.background = 'transparent';
+                                            e.currentTarget.style.background = 'transparent';
                                         }}
                                     >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                            {/* CHANGED: Standard Blue Icon */}
                                             <Monitor size={20} color="#3b82f6" />
                                             <div>
-                                                <div style={{
-                                                    fontWeight: 700,
-                                                    fontSize: '0.95rem',
-                                                    color: 'var(--text-main)'
-                                                }}>
+                                                <div style={{ fontWeight: 700 }}>
                                                     PC-{pc.pcNumber}
                                                 </div>
-                                                <div className="text-mono" style={{
-                                                    fontSize: '0.75rem',
-                                                    color: 'var(--text-dim)',
-                                                    marginTop: '0.25rem'
-                                                }}>
+                                                <div
+                                                    className="text-mono"
+                                                    style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}
+                                                >
                                                     {pc.ipAddress}
                                                 </div>
                                             </div>
                                         </div>
+
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                            <span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'}`}>
-                                                <span style={{
-                                                    display: 'inline-block',
-                                                    width: '6px',
-                                                    height: '6px',
-                                                    borderRadius: '50%',
-                                                    background: 'currentColor',
-                                                    marginRight: '0.5rem',
-                                                    animation: pc.isOnline ? 'pulse 2s infinite' : 'none'
-                                                }} />
+                                            <span
+                                                className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'
+                                                    }`}
+                                            >
+                                                <span
+                                                    style={{
+                                                        display: 'inline-block',
+                                                        width: 6,
+                                                        height: 6,
+                                                        borderRadius: '50%',
+                                                        background: 'currentColor',
+                                                        marginRight: '0.5rem',
+                                                        animation: pc.isOnline
+                                                            ? 'pulse 2s infinite'
+                                                            : 'none'
+                                                    }}
+                                                />
                                                 {pc.isOnline ? 'Online' : 'Offline'}
                                             </span>
-                                            <ChevronRight size={18} color="var(--text-dim)" />
+                                            <ChevronRight size={18} />
                                         </div>
                                     </motion.div>
                                 ))}

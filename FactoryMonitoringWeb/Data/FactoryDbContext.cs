@@ -8,15 +8,12 @@ namespace FactoryMonitoringWeb.Data
         public FactoryDbContext(DbContextOptions<FactoryDbContext> options) : base(options)
         {
         }
-
         public DbSet<FactoryPC> FactoryPCs { get; set; }
         public DbSet<ConfigFile> ConfigFiles { get; set; }
-        public DbSet<LogFile> LogFiles { get; set; }
         public DbSet<Model> Models { get; set; }
         public DbSet<ModelFile> ModelFiles { get; set; }
         public DbSet<ModelDistribution> ModelDistributions { get; set; }
         public DbSet<AgentCommand> AgentCommands { get; set; }
-        public DbSet<SystemLog> SystemLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -38,21 +35,12 @@ namespace FactoryMonitoringWeb.Data
                 .HasForeignKey<ConfigFile>(c => c.PCId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Configure indexes for performance
-            modelBuilder.Entity<FactoryPC>()
-                .HasIndex(p => p.LineNumber);
-
-            modelBuilder.Entity<FactoryPC>()
-                .HasIndex(p => p.IsOnline);
-
-            modelBuilder.Entity<ConfigFile>()
-                .HasIndex(c => c.PendingUpdate);
-
-            modelBuilder.Entity<AgentCommand>()
-                .HasIndex(a => new { a.PCId, a.Status });
-
-            modelBuilder.Entity<ModelDistribution>()
-                .HasIndex(m => m.Status);
+            // Indexes
+            modelBuilder.Entity<FactoryPC>().HasIndex(p => p.LineNumber);
+            modelBuilder.Entity<FactoryPC>().HasIndex(p => p.IsOnline);
+            modelBuilder.Entity<ConfigFile>().HasIndex(c => c.PendingUpdate);
+            modelBuilder.Entity<AgentCommand>().HasIndex(a => new { a.PCId, a.Status });
+            modelBuilder.Entity<ModelDistribution>().HasIndex(m => m.Status);
         }
     }
 }

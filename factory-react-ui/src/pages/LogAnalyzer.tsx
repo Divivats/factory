@@ -3,6 +3,7 @@ import { ScrollText } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { factoryApi } from '../services/api';
 import { logAnalyzerApi } from '../services/logAnalyzerApi';
+import { parseLogContent } from '../utils/logParser';
 
 import LoadingOverlay from '../components/LogAnalyzer/LoadingOverlay';
 import PCSelectionList, { type PCWithVersion } from '../components/LogAnalyzer/PCSelectionList';
@@ -90,17 +91,22 @@ export default function LogAnalyzer() {
         }
     };
 
-    const handleVisualize = async () => {
-        if (!selectedPC || !selectedFile) return;
+    const handleVisualize = () => {
+        if (!fileContent) return;
 
         setAnalyzing(true);
+
         try {
-            const result = await logAnalyzerApi.analyzeLogFile(selectedPC.pcId, selectedFile);
-            setAnalysisResult(result);
-            setFileContent(null);
+            const result = parseLogContent(fileContent.content);
+
+            // Small delay for UX (shows the user something is happening)
+            setTimeout(() => {
+                setAnalysisResult(result);
+                setFileContent(null);
+                setAnalyzing(false);
+            }, 100);
         } catch (error: any) {
             alert(`Analysis failed: ${error.message}`);
-        } finally {
             setAnalyzing(false);
         }
     };
@@ -132,7 +138,7 @@ export default function LogAnalyzer() {
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Loading Overlays with AnimatePresence */}
+            {/* Loading Overlays */}
             <AnimatePresence>
                 {loadingContent && (
                     <LoadingOverlay
@@ -143,7 +149,7 @@ export default function LogAnalyzer() {
                 {analyzing && (
                     <LoadingOverlay
                         message="Analyzing Log File..."
-                        submessage="Extracting barrel execution data"
+                        submessage="Parsing barrel execution data"
                     />
                 )}
                 {downloading && (
@@ -189,7 +195,7 @@ export default function LogAnalyzer() {
                 </div>
             </div>
 
-            {/* Main Content Area */}
+            {/* Main Content */}
             <div className="dashboard-scroll-area" style={{
                 flex: 1,
                 overflow: 'hidden',
@@ -226,7 +232,7 @@ export default function LogAnalyzer() {
                 </AnimatePresence>
             </div>
 
-            {/* Modals with AnimatePresence */}
+            {/* Modals */}
             <AnimatePresence>
                 {fileContent && (
                     <LogFileViewerModal

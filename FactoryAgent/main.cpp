@@ -55,7 +55,7 @@ bool LoadSettings(AgentSettings& settings) {
         settings.lineNumber = config["lineNumber"];
         settings.pcNumber = config["pcNumber"];
         settings.configFilePath = config["configFilePath"];
-        settings.logFilePath = config["logFilePath"];
+        settings.logFolderPath = config["logFolderPath"];
         settings.modelFolderPath = config["modelFolderPath"];
 
         if (config.contains("ipAddress")) {
@@ -84,7 +84,7 @@ void SaveSettings(const AgentSettings& settings) {
     config["lineNumber"] = settings.lineNumber;
     config["pcNumber"] = settings.pcNumber;
     config["configFilePath"] = settings.configFilePath;
-    config["logFilePath"] = settings.logFilePath;
+    config["logFolderPath"] = settings.logFolderPath;
     config["modelFolderPath"] = settings.modelFolderPath;
 
     if (!settings.ipAddress.empty()) {

@@ -11,7 +11,7 @@
             <h2>Versions</h2>
             <ul class="version-list">
                 <li class="@(Model.SelectedVersion == null ? "active" : "")">
-                    <a href="@Url.Action("Index", "Home", new { version = (string)null, viewMode = Model.ViewMode })">
+                    <a href="@Url.Action("Index", "Home", new { version = (string?)null, viewMode = Model.ViewMode })">
                         All Versions
                     </a>
                 </li>

@@ -1,18 +1,21 @@
-// DTOs for Agent Communication
-// Location: Models/DTOs/AgentDTOs.cs (or Models/AgentDTOs.cs)
-
 namespace FactoryMonitoringWeb.Models.DTOs
 {
-    // Registration Request - CLEANED (removed MacAddress, PCName, ExeFilePath)
     public class AgentRegistrationRequest
     {
         public int LineNumber { get; set; }
         public int PCNumber { get; set; }
         public string IPAddress { get; set; } = string.Empty;
         public string ConfigFilePath { get; set; } = string.Empty;
-        public string LogFilePath { get; set; } = string.Empty;
+
+        // Renamed from LogFolderPath to match C++ "logFilePath"
+        public string LogFolderPath { get; set; } = string.Empty;
+
         public string ModelFolderPath { get; set; } = string.Empty;
         public string ModelVersion { get; set; } = "3.5";
+
+        // Added missing fields sent by Agent
+        public string ExeName { get; set; } = string.Empty;
+        public string LogStructureJson { get; set; } = string.Empty;
     }
 
     public class AgentRegistrationResponse
@@ -20,6 +23,13 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public bool Success { get; set; }
         public int PCId { get; set; }
         public string Message { get; set; } = string.Empty;
+    }
+
+    public class LogStructureSyncRequest
+    {
+        public int PCId { get; set; }
+        // Renamed to match Registration DTO and C++ key "logStructureJson"
+        public string LogStructureJson { get; set; } = string.Empty;
     }
 
     // Heartbeat Request/Response
@@ -50,13 +60,9 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public string ConfigContent { get; set; } = string.Empty;
     }
 
-    // Log Update Request
-    public class LogUpdateRequest
-    {
-        public int PCId { get; set; }
-        public string LogContent { get; set; } = string.Empty;
-        public string LogFileName { get; set; } = string.Empty;
-    }
+    // REMOVED DEAD CODE: LogUpdateRequest
+    // Agent now uses LogStructureSyncRequest to sync the folder tree.
+    // Individual file content is fetched via CommandResultRequest (GetLogFileContent).
 
     // Model Sync Request
     public class ModelSyncRequest

@@ -1,6 +1,3 @@
-// FactoryPC Model - CLEANED
-// Location: Models/FactoryPC.cs
-
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -30,31 +27,26 @@ namespace FactoryMonitoringWeb.Models
 
         [Required]
         [StringLength(500)]
-        public string LogFilePath { get; set; } = string.Empty;
+        public string LogFolderPath { get; set; } = string.Empty;
 
         [Required]
         [StringLength(500)]
         public string ModelFolderPath { get; set; } = string.Empty;
 
-        // New: model version for this PC (e.g., 3.5, 4.0)
         [Required]
         [StringLength(20)]
         public string ModelVersion { get; set; } = "3.5";
+        public string? LogStructureJson { get; set; }
 
         public bool IsApplicationRunning { get; set; } = false;
-
         public bool IsOnline { get; set; } = false;
-
         public DateTime? LastHeartbeat { get; set; }
-
         public DateTime RegisteredDate { get; set; } = DateTime.Now;
-
         public DateTime LastUpdated { get; set; } = DateTime.Now;
 
         // Navigation properties
         public virtual ConfigFile? ConfigFile { get; set; }
         public virtual ICollection<Model> Models { get; set; } = new List<Model>();
-        public virtual ICollection<LogFile> LogFiles { get; set; } = new List<LogFile>();
         public virtual ICollection<AgentCommand> Commands { get; set; } = new List<AgentCommand>();
     }
 }

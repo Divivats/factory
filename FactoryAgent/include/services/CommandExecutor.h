@@ -50,7 +50,6 @@ private:
     void HandleDownloadModel(const Command& command);
     void HandleDeleteModel(const Command& command);
     void HandleUploadModel(const Command& command);
-    void HandleGetLogStructure(const Command& command);
     void HandleGetLogFileContent(const Command& command);
 
     // Helper methods

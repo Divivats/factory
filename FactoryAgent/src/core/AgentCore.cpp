@@ -1,10 +1,3 @@
-// Agent Core - OPTIMIZED Implementation
-// Location: src/AgentCore.cpp
-// OPTIMIZATIONS:
-// 1. Reduced sync frequency (not on every heartbeat)
-// 2. Only sync when there are actual changes
-// 3. Non-blocking command execution
-
 #include "../include/core/AgentCore.h"
 #include "../include/services/RegistrationService.h"
 #include "../include/services/HeartbeatService.h"
@@ -115,9 +108,8 @@ void AgentCore::WorkerLoop() {
     bool registered = false;
     int registrationRetries = 0;
 
-    // OPTIMIZATION: Counter for sync operations
     int heartbeatCount = 0;
-    const int SYNC_INTERVAL = 10; // Sync every 10th heartbeat (every 10 seconds if heartbeat is 1s)
+    const int SYNC_INTERVAL = 2;
 
     while (!stopRequested_) {
         if (!registered) {

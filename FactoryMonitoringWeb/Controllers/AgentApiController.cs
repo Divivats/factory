@@ -38,11 +38,12 @@ namespace FactoryMonitoringWeb.Controllers
                         PCNumber = request.PCNumber,
                         IPAddress = request.IPAddress,
                         ConfigFilePath = request.ConfigFilePath,
-                        LogFilePath = request.LogFilePath,
+                        LogFolderPath = request.LogFolderPath,
                         ModelFolderPath = request.ModelFolderPath,
                         ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion) ? "3.5" : request.ModelVersion,
                         IsOnline = true,
-                        LastHeartbeat = DateTime.Now
+                        LastHeartbeat = DateTime.Now,
+                        LogStructureJson = request.LogStructureJson
                     };
 
                     _context.FactoryPCs.Add(newPC);
@@ -55,14 +56,17 @@ namespace FactoryMonitoringWeb.Controllers
                 {
                     existingPC.IPAddress = request.IPAddress;
                     existingPC.ConfigFilePath = request.ConfigFilePath;
-                    existingPC.LogFilePath = request.LogFilePath;
+                    existingPC.LogFolderPath = request.LogFolderPath;
                     existingPC.ModelFolderPath = request.ModelFolderPath;
-                    existingPC.ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion)
-                        ? existingPC.ModelVersion
-                        : request.ModelVersion;
+                    existingPC.ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion) ? existingPC.ModelVersion : request.ModelVersion;
                     existingPC.IsOnline = true;
                     existingPC.LastHeartbeat = DateTime.Now;
                     existingPC.LastUpdated = DateTime.Now;
+
+                    if (!string.IsNullOrEmpty(request.LogStructureJson))
+                    {
+                        existingPC.LogStructureJson = request.LogStructureJson;
+                    }
 
                     await _context.SaveChangesAsync();
                     pcId = existingPC.PCId;
@@ -187,47 +191,25 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        [HttpPost("updatelog")]
-        public async Task<ActionResult<ApiResponse>> UpdateLog([FromBody] LogUpdateRequest request)
+        [HttpPost("synclogs")]
+        public async Task<ActionResult<ApiResponse>> SyncLogStructure([FromBody] LogStructureSyncRequest request)
         {
             try
             {
-                var existingLog = await _context.LogFiles
-                    .FirstOrDefaultAsync(l => l.PCId == request.PCId && l.LogFileName == request.LogFileName);
+                var pc = await _context.FactoryPCs.FindAsync(request.PCId);
+                if (pc == null) return NotFound(new ApiResponse { Success = false, Message = "PC not found" });
 
-                if (existingLog == null)
-                {
-                    var newLog = new LogFile
-                    {
-                        PCId = request.PCId,
-                        LogContent = request.LogContent,
-                        LogFileName = request.LogFileName,
-                        LastModified = DateTime.Now
-                    };
-                    _context.LogFiles.Add(newLog);
-                }
-                else
-                {
-                    existingLog.LogContent = request.LogContent;
-                    existingLog.LastModified = DateTime.Now;
-                }
+                // Save the JSON directly to the database
+                pc.LogStructureJson = request.LogStructureJson;
+                pc.LastUpdated = DateTime.Now;
 
                 await _context.SaveChangesAsync();
-
-                return Ok(new ApiResponse
-                {
-                    Success = true,
-                    Message = "Log updated successfully"
-                });
+                return Ok(new ApiResponse { Success = true, Message = "Log structure synced" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating log");
-                return StatusCode(500, new ApiResponse
-                {
-                    Success = false,
-                    Message = $"Log update failed: {ex.Message}"
-                });
+                _logger.LogError(ex, "Error syncing log structure");
+                return StatusCode(500, new ApiResponse { Success = false, Message = ex.Message });
             }
         }
 

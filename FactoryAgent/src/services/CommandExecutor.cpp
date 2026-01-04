@@ -78,16 +78,10 @@ void CommandExecutor::Execute(const Command& command)
         {
             HandleUploadModel(command);
         }
-        // ========== LOG ANALYZER COMMANDS ==========
-        else if (command.commandType == "GetLogStructure")
-        {
-            HandleGetLogStructure(command);
-        }
         else if (command.commandType == "GetLogFileContent")
         {
             HandleGetLogFileContent(command);
         }
-        // ============================================
         else
         {
             status = "Failed";
@@ -261,46 +255,6 @@ void CommandExecutor::HandleUploadModel(const Command& command)
     catch (const std::exception& ex)
     {
         SendCommandResult(command.commandId, "Failed", ex.what());
-    }
-}
-
-// ========== LOG ANALYZER COMMAND HANDLERS ==========
-
-void CommandExecutor::HandleGetLogStructure(const Command& command)
-{
-    try
-    {
-        // Parse command to get log path
-        json cmdJson = json::parse(command.commandData);
-        std::string logPath = cmdJson.value("LogPath", "");
-
-        // If LogPath is empty, use default from settings
-        if (logPath.empty())
-        {
-            logPath = GetLogFolderPath();
-            cmdJson["LogPath"] = logPath;
-        }
-
-        // Call LogAnalyzer handler
-        std::string result = LogAnalyzer::HandleGetLogStructure(cmdJson.dump());
-
-        // Check if result indicates success
-        json resultJson = json::parse(result);
-        if (resultJson.value("success", false))
-        {
-            SendCommandResult(command.commandId, "Completed", result);
-        }
-        else
-        {
-            SendCommandResult(command.commandId, "Failed", result);
-        }
-    }
-    catch (const std::exception& ex)
-    {
-        json error;
-        error["success"] = false;
-        error["error"] = ex.what();
-        SendCommandResult(command.commandId, "Failed", error.dump());
     }
 }
 

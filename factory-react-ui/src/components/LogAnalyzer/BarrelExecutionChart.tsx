@@ -6,20 +6,36 @@ interface Props {
     barrels: BarrelExecutionData[];
     selectedBarrel: string | null;
     onBarrelClick: (barrelId: string) => void;
+    onReady?: () => void;
 }
 
-export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrelClick }: Props) {
+export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrelClick, onReady }: Props) {
     const chartRef = useRef<HTMLDivElement>(null);
-    const resizeTimeoutRef = useRef<NodeJS.Timeout>();
+    const observerRef = useRef<ResizeObserver | null>(null);
+    const resizeInProgress = useRef(false);
+    const isFirstRender = useRef(true);
+
+    const safeResize = useCallback(() => {
+        if (!chartRef.current || resizeInProgress.current) return;
+
+        resizeInProgress.current = true;
+        Plotly.Plots.resize(chartRef.current)
+            .then(() => {
+                resizeInProgress.current = false;
+            })
+            .catch(() => {
+                resizeInProgress.current = false;
+            });
+    }, []);
 
     const updateChart = useCallback(() => {
         if (!chartRef.current || barrels.length === 0) return;
 
         const barrelCount = barrels.length;
-
+        // ... (Logic for tick calculation remains same)
         const calculateTickGap = (visibleStart: number, visibleEnd: number) => {
             const visibleBarrels = visibleEnd - visibleStart;
-            const chartWidth = chartRef.current?.offsetWidth || 1000;
+            const chartWidth = chartRef.current?.clientWidth || 1000;
             const pixelsPerTick = 70;
             const targetTickCount = Math.floor(chartWidth / pixelsPerTick);
             return Math.max(1, Math.ceil(visibleBarrels / targetTickCount));
@@ -42,22 +58,9 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
             },
             text: yData.map(y => `${y.toFixed(0)}ms`),
             textposition: 'outside' as const,
-            textfont: {
-                size: 11,
-                color: '#f8fafc',
-                family: 'JetBrains Mono, monospace',
-                weight: 600
-            },
+            textfont: { size: 11, color: '#f8fafc', family: 'JetBrains Mono, monospace', weight: 600 },
             hovertemplate: '<b>Barrel %{x}</b><br>Time: <b>%{y:.0f}ms</b><extra></extra>',
-            hoverlabel: {
-                bgcolor: '#1e293b',
-                bordercolor: '#38bdf8',
-                font: {
-                    color: '#f8fafc',
-                    size: 13,
-                    family: 'Inter, sans-serif'
-                }
-            }
+            hoverlabel: { bgcolor: '#1e293b', bordercolor: '#38bdf8', font: { color: '#f8fafc', size: 13 } }
         };
 
         const initialTickGap = calculateTickGap(0, barrelCount);
@@ -65,11 +68,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
 
         const layout: Partial<Plotly.Layout> = {
             xaxis: {
-                title: {
-                    text: 'Barrel ID',
-                    font: { color: '#f8fafc', size: 13, family: 'Inter, sans-serif' },
-                    standoff: 15
-                },
+                title: { text: 'Barrel ID', font: { color: '#f8fafc', size: 13, family: 'Inter, sans-serif' }, standoff: 15 },
                 tickfont: { color: '#94a3b8', size: 11, family: 'JetBrains Mono, monospace' },
                 dtick: initialTickGap,
                 rangeslider: showRangeSlider ? { visible: true, bgcolor: '#1e293b' } : { visible: false },
@@ -78,11 +77,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
                 zeroline: false
             },
             yaxis: {
-                title: {
-                    text: 'Execution Time (ms)',
-                    font: { color: '#f8fafc', size: 13, family: 'Inter, sans-serif' },
-                    standoff: 15
-                },
+                title: { text: 'Execution Time (ms)', font: { color: '#f8fafc', size: 13, family: 'Inter, sans-serif' }, standoff: 15 },
                 tickfont: { color: '#94a3b8', size: 11, family: 'JetBrains Mono, monospace' },
                 gridcolor: '#334155',
                 automargin: true,
@@ -103,51 +98,85 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
             modeBarButtonsToRemove: ['toImage', 'sendDataToCloud', 'lasso2d', 'select2d']
         };
 
-        Plotly.newPlot(chartRef.current, [trace], layout, config);
+        // WRAPPER: Delay newPlot slightly to ensure container ref has dimensions
+        requestAnimationFrame(() => {
+            if (!chartRef.current) return;
 
-        const chartElement = chartRef.current as any;
+            Plotly.newPlot(chartRef.current, [trace], layout, config).then(() => {
+                // FIX: Force one resize calculation immediately after plot 
+                // to fix the "stuck at small size" bug.
+                Plotly.Plots.resize(chartRef.current!).then(() => {
+                    if (onReady) onReady();
+                });
 
-        chartElement.on('plotly_click', (data: any) => {
-            if (data?.points?.length) {
-                onBarrelClick(barrels[data.points[0].pointIndex].barrelId);
-            }
+                const chartElement = chartRef.current as any;
+                if (chartElement) {
+                    chartElement.removeAllListeners('plotly_click');
+                    chartElement.removeAllListeners('plotly_relayout');
+
+                    chartElement.on('plotly_click', (data: any) => {
+                        if (data?.points?.length) {
+                            onBarrelClick(barrels[data.points[0].pointIndex].barrelId);
+                        }
+                    });
+
+                    chartElement.on('plotly_relayout', (eventData: any) => {
+                        if (eventData['xaxis.range[0]'] !== undefined) {
+                            const start = Math.max(0, Math.floor(eventData['xaxis.range[0]']));
+                            const end = Math.min(barrelCount, Math.ceil(eventData['xaxis.range[1]']));
+                            Plotly.relayout(chartElement, { 'xaxis.dtick': calculateTickGap(start, end) });
+                        }
+                    });
+                }
+            });
         });
+    }, [barrels, selectedBarrel, onBarrelClick, onReady]);
 
-        chartElement.on('plotly_relayout', (eventData: any) => {
-            if (eventData['xaxis.range[0]'] !== undefined) {
-                const start = Math.max(0, Math.floor(eventData['xaxis.range[0]']));
-                const end = Math.min(barrelCount, Math.ceil(eventData['xaxis.range[1]']));
-                Plotly.relayout(chartElement, { 'xaxis.dtick': calculateTickGap(start, end) });
+    // Keyboard navigation
+    useEffect(() => {
+        const handleKeyPress = (e: KeyboardEvent) => {
+            if (!selectedBarrel || barrels.length === 0) return;
+            const currentIndex = barrels.findIndex(b => b.barrelId === selectedBarrel);
+            if (currentIndex === -1) return;
+
+            let newIndex = currentIndex;
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                newIndex = currentIndex > 0 ? currentIndex - 1 : barrels.length - 1;
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                newIndex = currentIndex < barrels.length - 1 ? currentIndex + 1 : 0;
             }
-        });
-    }, [barrels, selectedBarrel, onBarrelClick]);
+
+            if (newIndex !== currentIndex) onBarrelClick(barrels[newIndex].barrelId);
+        };
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+    }, [selectedBarrel, barrels, onBarrelClick]);
 
     useEffect(() => {
         updateChart();
 
-        const handleResize = () => {
-            if (resizeTimeoutRef.current) {
-                clearTimeout(resizeTimeoutRef.current);
-            }
-            resizeTimeoutRef.current = setTimeout(() => {
-                if (chartRef.current) {
-                    Plotly.Plots.resize(chartRef.current);
+        if (observerRef.current) observerRef.current.disconnect();
+        observerRef.current = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                if (entry.target === chartRef.current) {
+                    if (isFirstRender.current) {
+                        isFirstRender.current = false;
+                        return;
+                    }
+                    window.requestAnimationFrame(() => safeResize());
                 }
-            }, 150);
-        };
+            }
+        });
 
-        window.addEventListener('resize', handleResize);
+        if (chartRef.current) observerRef.current.observe(chartRef.current);
 
         return () => {
-            window.removeEventListener('resize', handleResize);
-            if (resizeTimeoutRef.current) {
-                clearTimeout(resizeTimeoutRef.current);
-            }
-            if (chartRef.current) {
-                Plotly.purge(chartRef.current);
-            }
+            if (observerRef.current) observerRef.current.disconnect();
+            if (chartRef.current) Plotly.purge(chartRef.current);
         };
-    }, [updateChart]);
+    }, [updateChart, safeResize]);
 
     return <div ref={chartRef} style={{ width: '100%', height: '100%', minHeight: '300px' }} />;
 }

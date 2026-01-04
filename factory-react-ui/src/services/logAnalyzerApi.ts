@@ -1,15 +1,8 @@
-﻿// Log Analyzer API - Samsung Industry Grade
-// Location: src/services/logAnalyzerApi.ts
+﻿import type { LogFileStructure, LogFileContent, AnalysisResult } from '../types/logTypes';
 
-import type { LogFileStructure, LogFileContent, AnalysisResult } from '../types/logTypes';
-
-// Use relative path - Vite will proxy to backend
 const API_BASE = '/api';
 
 export const logAnalyzerApi = {
-    /**
-     * Get log folder structure from a specific PC
-     */
     async getLogStructure(pcId: number): Promise<LogFileStructure> {
         const response = await fetch(`${API_BASE}/LogAnalyzer/structure/${pcId}`);
         if (!response.ok) {
@@ -19,9 +12,6 @@ export const logAnalyzerApi = {
         return response.json();
     },
 
-    /**
-     * Get content of a specific log file
-     */
     async getLogFileContent(pcId: number, filePath: string): Promise<LogFileContent> {
         const response = await fetch(`${API_BASE}/LogAnalyzer/file/${pcId}`, {
             method: 'POST',
@@ -35,25 +25,6 @@ export const logAnalyzerApi = {
         return response.json();
     },
 
-    /**
-     * Analyze log file and extract barrel execution data
-     */
-    async analyzeLogFile(pcId: number, filePath: string): Promise<AnalysisResult> {
-        const response = await fetch(`${API_BASE}/LogAnalyzer/analyze/${pcId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filePath })
-        });
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ error: response.statusText }));
-            throw new Error(error.error || `Failed to analyze log file: ${response.statusText}`);
-        }
-        return response.json();
-    },
-
-    /**
-     * Download log file
-     */
     async downloadLogFile(pcId: number, filePath: string): Promise<Blob> {
         const response = await fetch(`${API_BASE}/LogAnalyzer/download/${pcId}`, {
             method: 'POST',

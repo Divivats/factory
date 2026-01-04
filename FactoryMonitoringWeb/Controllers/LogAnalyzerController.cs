@@ -22,63 +22,25 @@ namespace FactoryMonitoringWeb.Controllers
             _logger = logger;
         }
 
-        // ===================== LOG STRUCTURE =====================
         [HttpGet("structure/{pcId}")]
         public async Task<ActionResult<object>> GetLogStructure(int pcId)
         {
-            try
-            {
-                var pc = await _context.FactoryPCs.FindAsync(pcId);
-                if (pc == null)
-                    return NotFound(new { error = "PC not found" });
+            var pc = await _context.FactoryPCs.FindAsync(pcId);
+            if (pc == null) return NotFound(new { error = "PC not found" });
 
-                var command = new AgentCommand
-                {
-                    PCId = pcId,
-                    CommandType = "GetLogStructure",
-                    CommandData = JsonConvert.SerializeObject(new { LogPath = pc.LogFilePath }),
-                    Status = "Pending",
-                    CreatedDate = DateTime.UtcNow
-                };
+            string rawJson = string.IsNullOrEmpty(pc.LogStructureJson) ? "[]" : pc.LogStructureJson;
 
-                _context.AgentCommands.Add(command);
-                await _context.SaveChangesAsync();
+            // 2. Manually construct the wrapper JSON string
+            // Use proper escaping for rootPath to prevent invalid JSON
+            string responseJson = $@"{{
+                ""pcId"": {pcId},
+                ""rootPath"": {JsonConvert.ToString(pc.LogFolderPath)}, 
+                ""files"": {rawJson}
+            }}";
 
-                var timeout = DateTime.UtcNow.AddSeconds(45);
-
-                while (DateTime.UtcNow < timeout)
-                {
-                    await Task.Delay(1000);
-
-                    var cmd = await _context.AgentCommands
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(c => c.CommandId == command.CommandId);
-
-                    if (cmd?.Status == "Completed" && !string.IsNullOrEmpty(cmd.ResultData))
-                    {
-                        var result = JsonConvert.DeserializeObject<Dictionary<string, object>>(cmd.ResultData);
-                        return Ok(new
-                        {
-                            pcId,
-                            rootPath = pc.LogFilePath,
-                            files = result?["files"]
-                        });
-                    }
-
-                    if (cmd?.Status == "Failed")
-                        return StatusCode(500, new { error = cmd.ErrorMessage });
-                }
-
-                return StatusCode(408, new { error = "Request timeout - agent did not respond" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "GetLogStructure failed for PC {pcId}", pcId);
-                return StatusCode(500, new { error = ex.Message });
-            }
+            return Content(responseJson, "application/json");
         }
 
-        // ===================== FILE CONTENT =====================
         [HttpPost("file/{pcId}")]
         public async Task<ActionResult<object>> GetLogFileContent(int pcId, [FromBody] LogFileRequest request)
         {
@@ -245,7 +207,7 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
         // ===================== PARSER (UPDATED & ROBUST) =====================
-        private static string ExtractJson(string line)
+        private static string? ExtractJson(string line)
         {
             int first = line.IndexOf('{');
             int last = line.LastIndexOf('}');
@@ -296,9 +258,8 @@ namespace FactoryMonitoringWeb.Controllers
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 if (line.StartsWith("SEM_LOG_VERSION") || line.StartsWith("DateTime")) continue;
 
-                // -------- Operation + Status --------
-                string operationName = null;
-                string status = null;
+                string? operationName = null;
+                string? status = null;
 
                 var match = opRegex.Match(line);
                 if (match.Success)
@@ -316,7 +277,7 @@ namespace FactoryMonitoringWeb.Controllers
                     }
                     else
                     {
-                        continue; // non-sequence logs
+                        continue;
                     }
                 }
 

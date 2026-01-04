@@ -8,7 +8,6 @@ using json = nlohmann::json;
 
 namespace LogAnalyzer
 {
-    std::string HandleGetLogStructure(const std::string& commandData);
     std::string HandleGetLogFileContent(const std::string& commandData);
     json BuildFileTree(const std::wstring& rootPath, const std::wstring& relativePath = L"");
     std::string WStringToString(const std::wstring& wstr);
