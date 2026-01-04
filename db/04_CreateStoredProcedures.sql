@@ -1,12 +1,12 @@
 USE FactoryMonitoringDB;
 GO
 
-CREATE PROCEDURE sp_RegisterOrUpdatePC
+CREATE OR ALTER PROCEDURE sp_RegisterOrUpdatePC
     @LineNumber INT,
     @PCNumber INT,
     @IPAddress NVARCHAR(50),
     @ConfigFilePath NVARCHAR(500),
-    @LogFilePath NVARCHAR(500),
+    @LogFolderPath NVARCHAR(500), -- Renamed parameter
     @ModelFolderPath NVARCHAR(500),
     @ModelVersion NVARCHAR(20) = '3.5',
     @PCId INT OUTPUT
@@ -26,23 +26,27 @@ BEGIN
             PCNumber,
             IPAddress,
             ConfigFilePath,
-            LogFilePath,
+            LogFolderPath, -- Renamed column
             ModelFolderPath,
             ModelVersion,
             IsOnline,
             IsApplicationRunning,
-            LastHeartbeat
+            LastHeartbeat,
+            RegisteredDate,
+            LastUpdated
         )
         VALUES (
             @LineNumber,
             @PCNumber,
             @IPAddress,
             @ConfigFilePath,
-            @LogFilePath,
+            @LogFolderPath,
             @ModelFolderPath,
             @ModelVersion,
             1,
             0,
+            GETDATE(),
+            GETDATE(),
             GETDATE()
         );
 
@@ -53,7 +57,7 @@ BEGIN
         UPDATE FactoryPCs
         SET IPAddress = @IPAddress,
             ConfigFilePath = @ConfigFilePath,
-            LogFilePath = @LogFilePath,
+            LogFolderPath = @LogFolderPath, -- Renamed column
             ModelFolderPath = @ModelFolderPath,
             ModelVersion = @ModelVersion,
             IsOnline = 1,
@@ -64,6 +68,5 @@ BEGIN
 END
 GO
 
-PRINT 'Stored procedures created successfully!';
-
-
+PRINT 'Stored procedure sp_RegisterOrUpdatePC updated successfully!';
+GO

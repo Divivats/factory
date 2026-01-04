@@ -1,21 +1,28 @@
 USE FactoryMonitoringDB;
 GO
 
--- Add sample factory PCs if they don't exist
+-- ============================================
+-- 1. ADD SAMPLE FACTORY PCs
+-- ============================================
 IF NOT EXISTS (SELECT 1 FROM FactoryPCs WHERE LineNumber = 1 AND PCNumber = 1)
 BEGIN
-    INSERT INTO FactoryPCs (LineNumber, PCNumber, IPAddress, ConfigFilePath, LogFilePath, ModelFolderPath, ModelVersion, IsOnline, IsApplicationRunning, LastHeartbeat)
+    INSERT INTO FactoryPCs (
+        LineNumber, PCNumber, IPAddress, 
+        ConfigFilePath, LogFolderPath, ModelFolderPath, -- Renamed LogFolderPath
+        ModelVersion, IsOnline, IsApplicationRunning, 
+        LastHeartbeat, LogStructureJson
+    )
     VALUES 
-        (1, 1, '192.168.1.101', 'C:\Factory\Line1\PC1\config.ini', 'C:\Factory\Line1\PC1\logs', 'C:\Factory\Line1\PC1\models', '3.5', 1, 1, GETDATE()),
-        (1, 2, '192.168.1.102', 'C:\Factory\Line1\PC2\config.ini', 'C:\Factory\Line1\PC2\logs', 'C:\Factory\Line1\PC2\models', '3.5', 1, 0, GETDATE()),
-        (1, 3, '192.168.1.103', 'C:\Factory\Line1\PC3\config.ini', 'C:\Factory\Line1\PC3\logs', 'C:\Factory\Line1\PC3\models', '3.5', 0, 0, DATEADD(MINUTE, -5, GETDATE())),
+        (1, 1, '192.168.1.101', 'C:\Factory\Line1\PC1\config.ini', 'C:\Factory\Line1\PC1\logs', 'C:\Factory\Line1\PC1\models', '3.5', 1, 1, GETDATE(), NULL),
+        (1, 2, '192.168.1.102', 'C:\Factory\Line1\PC2\config.ini', 'C:\Factory\Line1\PC2\logs', 'C:\Factory\Line1\PC2\models', '3.5', 1, 0, GETDATE(), NULL),
+        (1, 3, '192.168.1.103', 'C:\Factory\Line1\PC3\config.ini', 'C:\Factory\Line1\PC3\logs', 'C:\Factory\Line1\PC3\models', '3.5', 0, 0, DATEADD(MINUTE, -5, GETDATE()), NULL),
         
-        (2, 1, '192.168.2.101', 'C:\Factory\Line2\PC1\config.ini', 'C:\Factory\Line2\PC1\logs', 'C:\Factory\Line2\PC1\models', '4.0', 1, 1, GETDATE()),
-        (2, 2, '192.168.2.102', 'C:\Factory\Line2\PC2\config.ini', 'C:\Factory\Line2\PC2\logs', 'C:\Factory\Line2\PC2\models', '4.0', 1, 1, GETDATE()),
-        (2, 3, '192.168.2.103', 'C:\Factory\Line2\PC3\config.ini', 'C:\Factory\Line2\PC3\logs', 'C:\Factory\Line2\PC3\models', '4.0', 1, 0, GETDATE()),
+        (2, 1, '192.168.2.101', 'C:\Factory\Line2\PC1\config.ini', 'C:\Factory\Line2\PC1\logs', 'C:\Factory\Line2\PC1\models', '4.0', 1, 1, GETDATE(), NULL),
+        (2, 2, '192.168.2.102', 'C:\Factory\Line2\PC2\config.ini', 'C:\Factory\Line2\PC2\logs', 'C:\Factory\Line2\PC2\models', '4.0', 1, 1, GETDATE(), NULL),
+        (2, 3, '192.168.2.103', 'C:\Factory\Line2\PC3\config.ini', 'C:\Factory\Line2\PC3\logs', 'C:\Factory\Line2\PC3\models', '4.0', 1, 0, GETDATE(), NULL),
         
-        (3, 1, '192.168.3.101', 'C:\Factory\Line3\PC1\config.ini', 'C:\Factory\Line3\PC1\logs', 'C:\Factory\Line3\PC1\models', '3.5', 0, 0, DATEADD(HOUR, -1, GETDATE())),
-        (3, 2, '192.168.3.102', 'C:\Factory\Line3\PC2\config.ini', 'C:\Factory\Line3\PC2\logs', 'C:\Factory\Line3\PC2\models', '4.0', 1, 1, GETDATE());
+        (3, 1, '192.168.3.101', 'C:\Factory\Line3\PC1\config.ini', 'C:\Factory\Line3\PC1\logs', 'C:\Factory\Line3\PC1\models', '3.5', 0, 0, DATEADD(HOUR, -1, GETDATE()), NULL),
+        (3, 2, '192.168.3.102', 'C:\Factory\Line3\PC2\config.ini', 'C:\Factory\Line3\PC2\logs', 'C:\Factory\Line3\PC2\models', '4.0', 1, 1, GETDATE(), NULL);
     
     PRINT 'Sample PCs added successfully!';
 END
@@ -25,17 +32,21 @@ BEGIN
 END
 GO
 
--- Add sample config files for each PC
-DECLARE @PCId INT;
-DECLARE pc_cursor CURSOR FOR SELECT PCId FROM FactoryPCs WHERE NOT EXISTS (SELECT 1 FROM ConfigFiles WHERE ConfigFiles.PCId = FactoryPCs.PCId);
+-- ============================================
+-- 2. ADD SAMPLE CONFIG FILES
+-- ============================================
+DECLARE @PCId_Config INT;
+DECLARE config_cursor CURSOR FOR 
+    SELECT PCId FROM FactoryPCs 
+    WHERE NOT EXISTS (SELECT 1 FROM ConfigFiles WHERE ConfigFiles.PCId = FactoryPCs.PCId);
 
-OPEN pc_cursor;
-FETCH NEXT FROM pc_cursor INTO @PCId;
+OPEN config_cursor;
+FETCH NEXT FROM config_cursor INTO @PCId_Config;
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
     INSERT INTO ConfigFiles (PCId, ConfigContent, LastModified)
-    VALUES (@PCId, 
+    VALUES (@PCId_Config, 
         '[Application]
 AppName=FactoryMonitor
 Version=1.0
@@ -57,57 +68,62 @@ HeartbeatInterval=10000
 ',
         GETDATE());
     
-    FETCH NEXT FROM pc_cursor INTO @PCId;
+    FETCH NEXT FROM config_cursor INTO @PCId_Config;
 END;
 
-CLOSE pc_cursor;
-DEALLOCATE pc_cursor;
+CLOSE config_cursor;
+DEALLOCATE config_cursor;
 
 PRINT 'Sample config files added!';
 GO
 
--- Add sample models for each PC
-DECLARE @PCId INT;
+-- ============================================
+-- 3. ADD SAMPLE MODELS (On Disk)
+-- ============================================
+DECLARE @PCId_Model INT;
 DECLARE @ModelVersion NVARCHAR(20);
-DECLARE pc_cursor CURSOR FOR 
+DECLARE model_cursor CURSOR FOR 
     SELECT PCId, ModelVersion FROM FactoryPCs 
     WHERE NOT EXISTS (SELECT 1 FROM Models WHERE Models.PCId = FactoryPCs.PCId);
 
-OPEN pc_cursor;
-FETCH NEXT FROM pc_cursor INTO @PCId, @ModelVersion;
+OPEN model_cursor;
+FETCH NEXT FROM model_cursor INTO @PCId_Model, @ModelVersion;
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    -- Add 2-3 models per PC
     INSERT INTO Models (PCId, ModelName, ModelPath, IsCurrentModel, DiscoveredDate, LastUsed)
     VALUES 
-        (@PCId, 'DefectDetection_v1.0', 'C:\Models\DefectDetection_v1.0', 0, DATEADD(DAY, -30, GETDATE()), DATEADD(DAY, -15, GETDATE())),
-        (@PCId, 'QualityCheck_v2.5', 'C:\Models\QualityCheck_v2.5', 1, DATEADD(DAY, -10, GETDATE()), GETDATE()),
-        (@PCId, 'Assembly_v1.5', 'C:\Models\Assembly_v1.5', 0, DATEADD(DAY, -20, GETDATE()), DATEADD(DAY, -5, GETDATE()));
+        (@PCId_Model, 'DefectDetection_v1.0', 'C:\Models\DefectDetection_v1.0', 0, DATEADD(DAY, -30, GETDATE()), DATEADD(DAY, -15, GETDATE())),
+        (@PCId_Model, 'QualityCheck_v2.5', 'C:\Models\QualityCheck_v2.5', 1, DATEADD(DAY, -10, GETDATE()), GETDATE()),
+        (@PCId_Model, 'Assembly_v1.5', 'C:\Models\Assembly_v1.5', 0, DATEADD(DAY, -20, GETDATE()), DATEADD(DAY, -5, GETDATE()));
     
-    FETCH NEXT FROM pc_cursor INTO @PCId, @ModelVersion;
+    FETCH NEXT FROM model_cursor INTO @PCId_Model, @ModelVersion;
 END;
 
-CLOSE pc_cursor;
-DEALLOCATE pc_cursor;
+CLOSE model_cursor;
+DEALLOCATE model_cursor;
 
 PRINT 'Sample models added!';
 GO
 
-PRINT '';
-PRINT '==============================================';
-PRINT 'Sample data setup complete!';
-PRINT '==============================================';
-PRINT '';
-PRINT 'Summary:';
-PRINT '- 8 Factory PCs across 3 lines';
-PRINT '- Config files for each PC';
-PRINT '- 3 models per PC';
-PRINT '';
-PRINT 'You can now:';
-PRINT '1. Start the backend: cd FactoryMonitoringWeb && dotnet run';
-PRINT '2. Start the frontend: cd factory-react-ui && npm run dev';
-PRINT '3. Open http://localhost:3000 in your browser';
-PRINT '';
+-- ============================================
+-- 4. ADD SAMPLE MODEL LIBRARY (Templates)
+-- ============================================
+IF NOT EXISTS (SELECT 1 FROM ModelFiles WHERE IsTemplate = 1)
+BEGIN
+    INSERT INTO ModelFiles (ModelName, FileData, FileName, FileSize, UploadedBy, IsActive, IsTemplate, Description, Category)
+    VALUES 
+        ('DefectDetection_Master', 0x00, 'defect_master.zip', 1048576, 'Admin', 1, 1, 'Standard model for scratch detection on all lens types.', 'Inspection'),
+        ('OCR_Reader_v4', 0x00, 'ocr_v4.zip', 2048576, 'System', 1, 1, 'Optimized for reading serial numbers in low light.', 'OCR'),
+        ('Assembly_Check_Final', 0x00, 'assembly_final.zip', 512000, 'QA_Team', 1, 1, 'Verifies component placement alignment.', 'Assembly');
+
+    PRINT 'Sample Model Library templates added!';
+END
+ELSE
+BEGIN
+    PRINT 'Model Library templates already exist.';
+END
 GO
 
+PRINT 'Sample data populated successfully!';
+GO

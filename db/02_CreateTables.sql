@@ -4,16 +4,16 @@ GO
 -- ============================================
 -- TABLE: FactoryPCs
 -- ============================================
--- NOTE: Table name must match EF Core mapping: [Table("FactoryPCs")]
 CREATE TABLE FactoryPCs (
     PCId INT PRIMARY KEY IDENTITY(1,1),
     LineNumber INT NOT NULL,
     PCNumber INT NOT NULL,
     IPAddress NVARCHAR(50) NOT NULL,
     ConfigFilePath NVARCHAR(500) NOT NULL,
-    LogFilePath NVARCHAR(500) NOT NULL,
+    LogFolderPath NVARCHAR(500) NOT NULL, -- Renamed from LogFilePath
     ModelFolderPath NVARCHAR(500) NOT NULL,
     ModelVersion NVARCHAR(20) NOT NULL DEFAULT '3.5',
+    LogStructureJson NVARCHAR(MAX) NULL,
     IsApplicationRunning BIT DEFAULT 0,
     IsOnline BIT DEFAULT 0,
     LastHeartbeat DATETIME NULL,
@@ -36,20 +36,6 @@ CREATE TABLE ConfigFiles (
     UpdateRequestTime DATETIME NULL,
     UpdateApplied BIT DEFAULT 0,
     CONSTRAINT FK_ConfigFiles_FactoryPCs FOREIGN KEY (PCId) 
-        REFERENCES FactoryPCs(PCId) ON DELETE CASCADE
-);
-GO
-
--- ============================================
--- TABLE: LogFiles
--- ============================================
-CREATE TABLE LogFiles (
-    LogId INT PRIMARY KEY IDENTITY(1,1),
-    PCId INT NOT NULL,
-    LogContent NVARCHAR(MAX) NOT NULL,
-    LogFileName NVARCHAR(255) NOT NULL,
-    LastModified DATETIME DEFAULT GETDATE(),
-    CONSTRAINT FK_LogFiles_FactoryPCs FOREIGN KEY (PCId) 
         REFERENCES FactoryPCs(PCId) ON DELETE CASCADE
 );
 GO
@@ -82,7 +68,10 @@ CREATE TABLE ModelFiles (
     FileSize BIGINT NOT NULL,
     UploadedDate DATETIME DEFAULT GETDATE(),
     UploadedBy NVARCHAR(100) NULL,
-    IsActive BIT DEFAULT 1
+    IsActive BIT DEFAULT 1,
+    IsTemplate BIT NOT NULL DEFAULT 0,
+    Description NVARCHAR(500) NULL,
+    Category NVARCHAR(100) NULL
 );
 GO
 
@@ -94,8 +83,8 @@ CREATE TABLE ModelDistributions (
     ModelFileId INT NOT NULL,
     PCId INT NULL,
     LineNumber INT NULL,
-    DistributionType NVARCHAR(20) NOT NULL DEFAULT 'Single', -- 'Single', 'Line', 'Version', 'All'
-    Status NVARCHAR(20) NOT NULL DEFAULT 'Pending', -- 'Pending', 'InProgress', 'Completed', 'Failed'
+    DistributionType NVARCHAR(20) NOT NULL DEFAULT 'Single',
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Pending',
     RequestedDate DATETIME DEFAULT GETDATE(),
     CompletedDate DATETIME NULL,
     ErrorMessage NVARCHAR(MAX) NULL,
@@ -113,9 +102,9 @@ GO
 CREATE TABLE AgentCommands (
     CommandId INT PRIMARY KEY IDENTITY(1,1),
     PCId INT NOT NULL,
-    CommandType NVARCHAR(50) NOT NULL, -- 'UpdateConfig', 'ChangeModel', 'DownloadModel', 'DeleteModel', 'UploadModel'
+    CommandType NVARCHAR(50) NOT NULL, 
     CommandData NVARCHAR(MAX) NULL,
-    Status NVARCHAR(20) NOT NULL DEFAULT 'Pending', -- 'Pending', 'InProgress', 'Completed', 'Failed'
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Pending', 
     CreatedDate DATETIME DEFAULT GETDATE(),
     ExecutedDate DATETIME NULL,
     ResultData NVARCHAR(MAX) NULL,
@@ -126,22 +115,15 @@ CREATE TABLE AgentCommands (
 GO
 
 -- ============================================
--- TABLE: SystemLogs
+-- INDEXES
 -- ============================================
-CREATE TABLE SystemLogs (
-    LogId INT PRIMARY KEY IDENTITY(1,1),
-    PCId INT NULL,
-    Action NVARCHAR(255) NOT NULL,
-    ActionType NVARCHAR(50) NOT NULL DEFAULT 'Info', -- 'Info', 'Warning', 'Error', 'Success'
-    Details NVARCHAR(MAX) NULL,
-    IPAddress NVARCHAR(50) NULL,
-    UserName NVARCHAR(100) NULL,
-    Timestamp DATETIME DEFAULT GETDATE(),
-    CONSTRAINT FK_SystemLogs_FactoryPCs FOREIGN KEY (PCId) 
-        REFERENCES FactoryPCs(PCId) ON DELETE SET NULL
-);
+CREATE INDEX IX_FactoryPCs_LineNumber ON FactoryPCs(LineNumber);
+CREATE INDEX IX_FactoryPCs_IsOnline ON FactoryPCs(IsOnline);
+CREATE INDEX IX_ConfigFiles_PCId ON ConfigFiles(PCId);
+CREATE INDEX IX_Models_PCId ON Models(PCId);
+CREATE INDEX IX_ModelFiles_IsTemplate ON ModelFiles(IsTemplate);
+CREATE INDEX IX_AgentCommands_PCId_Status ON AgentCommands(PCId, Status);
 GO
 
-PRINT 'All tables created successfully!';
-PRINT 'Tables created: FactoryPCs, ConfigFiles, LogFiles, Models, ModelFiles, ModelDistributions, AgentCommands, SystemLogs';
+PRINT 'Database schema updated successfully with LogFolderPath!';
 GO
