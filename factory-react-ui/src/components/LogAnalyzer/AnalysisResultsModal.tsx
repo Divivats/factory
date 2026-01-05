@@ -202,57 +202,14 @@ export default function AnalysisResultsModal({
                                 <Minimize2 size={16} />
                             </button>
 
-                            {/* CLOSE BUTTON WITH ESC HINT */}
                             <div style={{ position: 'relative' }}>
                                 <button
-                                    className="btn btn-secondary"
+                                    className="btn btn-secondary btn-icon"
                                     onClick={onClose}
-                                    style={{ ...btnStyle, gap: '0.5rem', paddingRight: '0.5rem' }}
-                                    onMouseEnter={() => setShowEscTooltip(true)}
-                                    onMouseLeave={() => setShowEscTooltip(false)}
+                                    style={btnStyle}
                                 >
-                                    <div style={{
-                                        fontSize: '0.65rem',
-                                        fontWeight: 700,
-                                        color: 'var(--text-muted)',
-                                        border: '1px solid var(--border)',
-                                        borderRadius: '4px',
-                                        padding: '0 4px',
-                                        background: 'var(--bg-app)',
-                                        fontFamily: 'system-ui',
-                                        height: '18px',
-                                        display: 'flex',
-                                        alignItems: 'center'
-                                        }}>
-                                        </div>
-                                        <X size={16} />
+                                    <X size={16} />
                                 </button>
-
-                                <AnimatePresence>
-                                    {showEscTooltip && (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 5 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0 }}
-                                            style={{
-                                                position: 'absolute',
-                                                top: '115%',
-                                                right: 0,
-                                                background: '#1e293b',
-                                                border: '1px solid #334155',
-                                                color: '#f8fafc',
-                                                padding: '0.4rem 0.8rem',
-                                                borderRadius: '4px',
-                                                fontSize: '0.75rem',
-                                                whiteSpace: 'nowrap',
-                                                zIndex: 50,
-                                                boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-                                            }}
-                                        >
-                                            Press <b style={{ color: '#fff' }}>Esc</b> to close
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
                             </div>
                         </div>
                     </div>
