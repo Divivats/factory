@@ -161,11 +161,7 @@ export default function LogAnalyzer() {
             </AnimatePresence>
 
             {/* Header */}
-            <div className="dashboard-header" style={{
-                borderBottom: '2px solid var(--border)',
-                background: 'linear-gradient(135deg, var(--bg-panel), var(--bg-card))',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-            }}>
+            <div className="dashboard-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{
                         width: '40px',
@@ -180,15 +176,7 @@ export default function LogAnalyzer() {
                         <ScrollText size={22} color="#ffffff" />
                     </div>
                     <div>
-                        <h1 style={{
-                            fontSize: '1.3rem',
-                            fontWeight: 700,
-                            margin: 0,
-                            background: 'linear-gradient(135deg, #60a5fa, #34d399)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            backgroundClip: 'text'
-                        }}>
+                        <h1 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             Log Analyzer
                         </h1>
                     </div>

@@ -93,7 +93,7 @@ export default function Sidebar() {
                     <Link to="/dashboard" className={`sidebar-link ${isActive('/dashboard') ? 'active' : ''}`}>
                         <LayoutGrid size={18} />
                         <span style={{ flex: 1 }}>Overview</span>
-                        {isActive('/dashboard') && <ChevronRight size={14} />}
+                        {isActive('/dashboard')}
                     </Link>
                 </div>
 
