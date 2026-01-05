@@ -8,16 +8,14 @@ import { parseLogContent } from '../utils/logParser';
 import LoadingOverlay from '../components/LogAnalyzer/LoadingOverlay';
 import PCSelectionList, { type PCWithVersion } from '../components/LogAnalyzer/PCSelectionList';
 import LogFileSelector from '../components/LogAnalyzer/LogFileSelector';
-import LogFileViewerModal from '../components/LogAnalyzer/LogFileViewerModal';
 import AnalysisResultsModal from '../components/LogAnalyzer/AnalysisResultsModal';
 
-import type { LogFileNode, LogFileContent, AnalysisResult } from '../types/logTypes';
+import type { LogFileNode, AnalysisResult } from '../types/logTypes';
 
 export default function LogAnalyzer() {
     // State: Data
     const [pcs, setPCs] = useState<PCWithVersion[]>([]);
     const [logFiles, setLogFiles] = useState<LogFileNode[]>([]);
-    const [fileContent, setFileContent] = useState<LogFileContent | null>(null);
     const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
 
     // State: Selection
@@ -28,9 +26,7 @@ export default function LogAnalyzer() {
     // State: UI/Loading
     const [loadingPCs, setLoadingPCs] = useState(true);
     const [loadingFiles, setLoadingFiles] = useState(false);
-    const [loadingContent, setLoadingContent] = useState(false);
     const [analyzing, setAnalyzing] = useState(false);
-    const [downloading, setDownloading] = useState(false);
 
     useEffect(() => {
         loadPCs();
@@ -59,7 +55,6 @@ export default function LogAnalyzer() {
         setSelectedPC(pc);
         setLogFiles([]);
         setSelectedFile(null);
-        setFileContent(null);
         setAnalysisResult(null);
         setSelectedBarrel(null);
 
@@ -74,61 +69,29 @@ export default function LogAnalyzer() {
         }
     };
 
+    // DIRECT ANALYSIS WORKFLOW
     const handleFileClick = async (filePath: string) => {
         if (!selectedPC) return;
 
         setSelectedFile(filePath);
-        setLoadingContent(true);
-
-        try {
-            const content = await logAnalyzerApi.getLogFileContent(selectedPC.pcId, filePath);
-            setFileContent(content);
-        } catch (error: any) {
-            alert(`Failed to load file: ${error.message}`);
-            setSelectedFile(null);
-        } finally {
-            setLoadingContent(false);
-        }
-    };
-
-    const handleVisualize = () => {
-        if (!fileContent) return;
-
         setAnalyzing(true);
 
         try {
-            const result = parseLogContent(fileContent.content);
+            // 1. Fetch Content
+            const contentData = await logAnalyzerApi.getLogFileContent(selectedPC.pcId, filePath);
 
-            // Small delay for UX (shows the user something is happening)
-            setTimeout(() => {
-                setAnalysisResult(result);
-                setFileContent(null);
-                setAnalyzing(false);
-            }, 100);
+            // 2. Parse Immediately
+            // We pass the fileName to the parser to store it in the result
+            const result = parseLogContent(contentData.content, contentData.fileName);
+
+            // 3. Open Analysis Modal Directly
+            setAnalysisResult(result);
+
         } catch (error: any) {
-            alert(`Analysis failed: ${error.message}`);
-            setAnalyzing(false);
-        }
-    };
-
-    const handleDownload = async () => {
-        if (!selectedPC || !selectedFile || !fileContent) return;
-
-        setDownloading(true);
-        try {
-            const blob = await logAnalyzerApi.downloadLogFile(selectedPC.pcId, selectedFile);
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileContent.fileName;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-        } catch (error: any) {
-            alert(`Download failed: ${error.message}`);
+            alert(`Failed to analyze file: ${error.message}`);
+            setSelectedFile(null);
         } finally {
-            setDownloading(false);
+            setAnalyzing(false);
         }
     };
 
@@ -140,22 +103,10 @@ export default function LogAnalyzer() {
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Loading Overlays */}
             <AnimatePresence>
-                {loadingContent && (
-                    <LoadingOverlay
-                        message="Loading Log File..."
-                        submessage="Reading file content from PC"
-                    />
-                )}
                 {analyzing && (
                     <LoadingOverlay
-                        message="Analyzing Log File..."
-                        submessage="Parsing barrel execution data"
-                    />
-                )}
-                {downloading && (
-                    <LoadingOverlay
-                        message="Downloading..."
-                        submessage="Preparing log file for download"
+                        message="Processing Log..."
+                        submessage="Parsing barrel execution & sequence data"
                     />
                 )}
             </AnimatePresence>
@@ -218,7 +169,6 @@ export default function LogAnalyzer() {
                                 setSelectedPC(null);
                                 setLogFiles([]);
                                 setSelectedFile(null);
-                                setFileContent(null);
                                 setAnalysisResult(null);
                             }}
                             loading={loadingFiles}
@@ -232,19 +182,8 @@ export default function LogAnalyzer() {
                 </AnimatePresence>
             </div>
 
-            {/* Modals */}
+            {/* Analysis Modal (Replaces old File Viewer) */}
             <AnimatePresence>
-                {fileContent && (
-                    <LogFileViewerModal
-                        fileContent={fileContent}
-                        onClose={() => setFileContent(null)}
-                        onVisualize={handleVisualize}
-                        onDownload={handleDownload}
-                        analyzing={analyzing}
-                        downloading={downloading}
-                    />
-                )}
-
                 {analysisResult && (
                     <AnalysisResultsModal
                         result={analysisResult}
@@ -253,6 +192,7 @@ export default function LogAnalyzer() {
                         onClose={() => {
                             setAnalysisResult(null);
                             setSelectedBarrel(null);
+                            setSelectedFile(null); // Reset selection to allow re-clicking same file
                         }}
                     />
                 )}

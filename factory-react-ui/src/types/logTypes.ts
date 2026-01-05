@@ -17,11 +17,16 @@ export interface LogFileContent {
 
 export interface OperationData {
     operationName: string;
+    // Normalized times (starts at 0 for each barrel) - used for Barrel Analysis
     startTime: number;
     endTime: number;
+    // Global/Absolute times (from log start) - used for Long Gantt
+    globalStartTime: number;
+    globalEndTime: number;
     actualDuration: number;
     idealDuration: number;
     sequence: number;
+    barrelId: string; // Added for easy reference in tooltips/charts
 }
 
 export interface BarrelExecutionData {
@@ -38,6 +43,8 @@ export interface AnalysisResult {
         minExecutionTime: number;
         maxExecutionTime: number;
     };
+    rawContent?: string; // Optional reference to raw content for Tab 3
+    fileName?: string;   // Optional reference for display
 }
 
 export interface FactoryPC {

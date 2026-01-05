@@ -184,7 +184,7 @@ export default function PCDetailsPage() {
             const url = window.URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
-            a.download = `config_Line${pc.lineNumber}_PC${pc.pcNumber}.ini`
+            a.download = `config_Line${pc.lineNumber}_PC${pc.pcNumber}.txt`
             document.body.appendChild(a)
             a.click()
             a.remove()

@@ -1,6 +1,6 @@
 ﻿import type { AnalysisResult, BarrelExecutionData, OperationData } from '../types/logTypes';
 
-export function parseLogContent(content: string): AnalysisResult {
+export function parseLogContent(content: string, fileName?: string): AnalysisResult {
     const lines = content.trim().split('\n');
 
     const barrelMap = new Map<number, {
@@ -42,7 +42,8 @@ export function parseLogContent(content: string): AnalysisResult {
         if (!barrel.operations.has(sequenceName)) {
             barrel.operations.set(sequenceName, {
                 operationName: sequenceName,
-                sequence: barrel.sequenceOrder.length + 1
+                sequence: barrel.sequenceOrder.length + 1,
+                barrelId: barrelId.toString()
             });
             barrel.sequenceOrder.push(sequenceName);
         }
@@ -50,13 +51,17 @@ export function parseLogContent(content: string): AnalysisResult {
         const operation = barrel.operations.get(sequenceName)!;
 
         if (event === 'START') {
-            operation.startTime = data.startTs ?? 0;
+            const ts = data.startTs ?? 0;
+            operation.startTime = ts;       // Temporarily store raw
+            operation.globalStartTime = ts; // Store global raw
         } else if (event === 'END') {
-            operation.endTime = data.endTs ?? 0;
+            const ts = data.endTs ?? 0;
+            operation.endTime = ts;         // Temporarily store raw
+            operation.globalEndTime = ts;   // Store global raw
             operation.idealDuration = data.idealMs ?? 1000;
 
-            if (operation.startTime !== undefined && operation.endTime !== undefined) {
-                operation.actualDuration = operation.endTime - operation.startTime;
+            if (operation.globalStartTime !== undefined) {
+                operation.actualDuration = ts - operation.globalStartTime;
             }
         }
     }
@@ -68,32 +73,39 @@ export function parseLogContent(content: string): AnalysisResult {
         const operations: OperationData[] = [];
 
         for (const op of barrelData.operations.values()) {
-            if (op.startTime !== undefined &&
-                op.endTime !== undefined &&
+            if (op.globalStartTime !== undefined &&
+                op.globalEndTime !== undefined &&
                 op.actualDuration !== undefined &&
                 op.idealDuration !== undefined &&
                 op.operationName !== undefined &&
                 op.sequence !== undefined) {
+
+                // Ensure normalized copies exist
+                op.startTime = op.globalStartTime;
+                op.endTime = op.globalEndTime;
+
                 operations.push(op as OperationData);
             }
         }
 
         // Sort by start time
-        operations.sort((a, b) => a.startTime - b.startTime);
+        operations.sort((a, b) => a.globalStartTime - b.globalStartTime);
 
         // NORMALIZE: Find the minimum start time for this barrel
-        const minStartTime = operations.length > 0
-            ? Math.min(...operations.map(op => op.startTime))
-            : 0;
+        // This creates the "0-based" view for Tab 2 (Single Barrel Analysis)
+        const minStartTime = operations.length > 0 ? operations[0].startTime : 0;
 
-        // Adjust all times to start from 0
+        // Adjust relative times to start from 0
         operations.forEach(op => {
             op.startTime = op.startTime - minStartTime;
             op.endTime = op.endTime - minStartTime;
         });
 
-        // Calculate total execution time
-        const totalExecutionTime = operations.reduce((sum, op) => sum + op.actualDuration, 0);
+        // Calculate total execution time (Wall Clock Time for this barrel)
+        // Since we normalized, max(endTime) is the duration
+        const totalExecutionTime = operations.length > 0
+            ? Math.max(...operations.map(op => op.endTime))
+            : 0;
 
         barrels.push({
             barrelId: barrelId.toString(),
@@ -120,5 +132,5 @@ export function parseLogContent(content: string): AnalysisResult {
             : 0
     };
 
-    return { barrels, summary };
+    return { barrels, summary, rawContent: content, fileName };
 }
