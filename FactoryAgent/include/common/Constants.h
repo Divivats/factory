@@ -3,7 +3,7 @@
 
 namespace AgentConstants {
     /* Timing constants */
-    const int HEARTBEAT_INTERVAL_SECONDS = 1;
+    const int HEARTBEAT_INTERVAL_SECONDS = 10;
     const int MAX_REGISTRATION_RETRIES = 3;
     const int MAX_CONNECTION_FAILURES = 5;
     const int RETRY_DELAY_SECONDS = 5;
