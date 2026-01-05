@@ -15,7 +15,7 @@ interface Props {
 
 // Compact Button Style
 const btnStyle = {
-    padding: '0.25rem', // Reduced padding
+    padding: '0.25rem',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -28,7 +28,7 @@ const btnStyle = {
 };
 
 const tabBtnStyle = (isActive: boolean) => ({
-    padding: '0.35rem 0.75rem', // Reduced padding
+    padding: '0.35rem 0.75rem',
     borderRadius: '6px',
     border: 'none',
     background: isActive ? '#3b82f6' : 'transparent',
@@ -78,38 +78,13 @@ export default function AnalysisResultsModal({
                 return (
                     <div className="card" style={{
                         height: '100%',
-                        padding: '0.5rem', // Minimize padding
+                        padding: '0.5rem',
                         border: 'none',
                         background: 'transparent',
                         display: 'flex',
                         flexDirection: 'column'
                     }}>
-                        {/* Compact Legend */}
-                        <div style={{
-                            marginBottom: '0.5rem',
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: '1.5rem',
-                            fontSize: '0.75rem',
-                            color: '#94a3b8',
-                            padding: '0 0.5rem'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <div style={{ width: 10, height: 10, background: '#3b82f6', borderRadius: 2 }}></div> Barrel 0, 4...
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <div style={{ width: 10, height: 10, background: '#10b981', borderRadius: 2 }}></div> Barrel 1, 5...
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <div style={{ width: 10, height: 10, background: '#8b5cf6', borderRadius: 2 }}></div> Barrel 2, 6...
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <div style={{ width: 10, height: 10, background: '#f59e0b', borderRadius: 2 }}></div> Barrel 3, 7...
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginLeft: 'auto' }}>
-                                <div style={{ width: 10, height: 10, background: '#fbbf24', opacity: 0.5, borderRadius: 2 }}></div> Ideal Time
-                            </div>
-                        </div>
+                        {/* Legend removed to increase graph area */}
                         <div style={{ flex: 1, minHeight: 0 }}>
                             <LongGanttChart barrels={result.barrels} />
                         </div>

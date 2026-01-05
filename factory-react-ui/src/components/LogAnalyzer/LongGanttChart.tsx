@@ -21,150 +21,166 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
             .catch(() => { resizeInProgress.current = false; });
     }, []);
 
-    // Color Palette for Rotating Barrels (Background grouping visual only)
-    // We will rely on Red/Blue for status, but can use these for slight tinting if needed, 
-    // or just rely on the 'offsetgroup' grouping to distinguish barrels.
-    // For this specific request: "Ideal time, actual time (ontime), Actual time (Delayed)" logic takes precedence.
+    const BARREL_COLORS = ['#3b82f6', '#10b981', '#8b5cf6'];
 
     const chartData = useMemo(() => {
-        // Flatten all operations
         const allOps = barrels.flatMap(b => b.operations);
 
-        // We still group by Barrel ID to manage the stacking (offsetgroup)
-        // But the Coloring follows the strict Red/Blue/Yellow logic
+        const opStartMap = new Map<string, number>();
+        allOps.forEach(op => {
+            const current = opStartMap.get(op.operationName) ?? Infinity;
+            if (op.globalStartTime < current) {
+                opStartMap.set(op.operationName, op.globalStartTime);
+            }
+        });
+
+        const sortedOpNames = Array.from(new Set(allOps.map(op => op.operationName)))
+            .sort((a, b) => (opStartMap.get(b) || 0) - (opStartMap.get(a) || 0));
+
+
         const traces: any[] = [];
-        const uniqueBarrelIds = Array.from(new Set(allOps.map(op => op.barrelId)));
 
-        uniqueBarrelIds.forEach((barrelId) => {
-            const opsInBarrel = allOps.filter(op => op.barrelId === barrelId);
-            if (opsInBarrel.length === 0) return;
+        // --- TRACE A: IDEAL TIME (Bottom Row) ---
+        traces.push({
+            type: 'bar',
+            name: 'Ideal Time',
+            y: allOps.map(op => op.operationName),
+            x: allOps.map(op => op.idealDuration),
+            base: allOps.map(op => op.globalStartTime),
+            orientation: 'h',
+            offsetgroup: 'ideal',
+            legendgroup: 'ideal',
+            marker: {
+                color: '#fbbf24',
+                line: { width: 0 }
+            },
+            text: allOps.map(op => `${op.idealDuration}`),
+            textposition: 'inside',
+            textfont: { size: 10, color: '#000000', family: 'JetBrains Mono, monospace', weight: 600 },
 
-            const yData = opsInBarrel.map(op => op.operationName);
-            const baseData = opsInBarrel.map(op => op.globalStartTime);
+            customdata: allOps.map(op => ({
+                idealMs: op.idealDuration
+            })),
 
-            // 1. IDEAL TIME TRACE (Background)
+            hovertemplate:
+                '<b>%{y}</b><br>' +
+                'Ideal Time: <b>%{customdata.idealMs} ms</b>' +
+                '<extra></extra>',
+
+            showlegend: true
+        });
+
+        // --- TRACE B, C, D: ACTUAL TIME (Top Row) ---
+        BARREL_COLORS.forEach((color, i) => {
+            const opsInGroup = allOps.filter(op => parseInt(op.barrelId) % 3 === i);
+
+            if (opsInGroup.length === 0) return;
+
             traces.push({
                 type: 'bar',
-                name: `Barrel ${barrelId} - Ideal`,
-                x: opsInBarrel.map(op => op.idealDuration),
-                y: yData,
-                base: baseData,
+                name: 'Actual Time',
+                y: opsInGroup.map(op => op.operationName),
+                x: opsInGroup.map(op => op.actualDuration),
+                base: opsInGroup.map(op => op.globalStartTime),
                 orientation: 'h',
-                offsetgroup: barrelId, // Stack all traces for this barrel together
+                offsetgroup: 'actual',
+                legendgroup: 'actual',
+                showlegend: i === 0,
                 marker: {
-                    color: '#fbbf24',
-                    line: { color: '#f59e0b', width: 1 },
-                    opacity: 0.6 // Slightly visible behind
+                    color: color,
+                    line: { width: 0 }
                 },
-                hoverinfo: 'skip',
-                showlegend: false
-            });
-
-            // 2. ACTUAL TIME - ON TIME (Blue)
-            const onTimeOps = opsInBarrel.map(op => op.actualDuration <= op.idealDuration ? op.actualDuration : null);
-            traces.push({
-                type: 'bar',
-                name: `Barrel ${barrelId} - On Time`,
-                x: onTimeOps,
-                y: yData,
-                base: baseData,
-                orientation: 'h',
-                offsetgroup: barrelId,
-                marker: {
-                    color: '#38bdf8',
-                    line: { color: '#38bdf8', width: 2 }
-                },
-                text: opsInBarrel.map(op => op.actualDuration <= op.idealDuration ? `${op.actualDuration}ms` : ''),
+                // Text: Duration in Black
+                text: opsInGroup.map(op => `${op.actualDuration}`),
                 textposition: 'inside',
-                textfont: { size: 11, color: '#0f172a', family: 'JetBrains Mono, monospace', weight: 700 },
+                textfont: { size: 10, color: '#000000', family: 'JetBrains Mono, monospace', weight: 700 },
 
                 hovertemplate:
                     '<b>%{y}</b><br>' +
-                    'Barrel: <b>%{customdata[0]}</b><br>' +
-                    'Start: <b>%{base} ms</b><br>' +
-                    'End: <b>%{customdata[1]} ms</b><br>' +
-                    'Duration: <b>%{x} ms</b><extra></extra>',
-                customdata: opsInBarrel.map(op => [op.barrelId, op.globalEndTime]),
-                showlegend: false
-            });
+                    'Barrel ID: <b>%{customdata[0]}</b><br>' +
+                    'Start: %{base:.0f} ms<br>' +
+                    'End: %{customdata[1]} ms<br>' +
+                    '%{customdata[2]}<extra></extra>',
 
-            // 3. ACTUAL TIME - DELAYED (Red)
-            const delayedOps = opsInBarrel.map(op => op.actualDuration > op.idealDuration ? op.actualDuration : null);
-            traces.push({
-                type: 'bar',
-                name: `Barrel ${barrelId} - Delayed`,
-                x: delayedOps,
-                y: yData,
-                base: baseData,
-                orientation: 'h',
-                offsetgroup: barrelId,
-                marker: {
-                    color: '#ef4444',
-                    line: { color: '#dc2626', width: 2 }
-                },
-                text: opsInBarrel.map(op => op.actualDuration > op.idealDuration ? `${op.actualDuration}ms` : ''),
-                textposition: 'inside',
-                textfont: { size: 11, color: '#0f172a', family: 'JetBrains Mono, monospace', weight: 700 },
-
-                hovertemplate:
-                    '<b>%{y}</b><br>' +
-                    'Barrel: <b>%{customdata[0]}</b><br>' +
-                    'Start: <b>%{base} ms</b><br>' +
-                    'End: <b>%{customdata[1]} ms</b><br>' +
-                    'Duration: <b>%{x} ms</b><br>' +
-                    '⚠ Delayed<extra></extra>',
-                customdata: opsInBarrel.map(op => [op.barrelId, op.globalEndTime]),
-                showlegend: false
+                customdata: opsInGroup.map(op => [
+                    op.barrelId,
+                    (op.globalStartTime + op.actualDuration).toFixed(0),
+                    op.actualDuration > op.idealDuration ? '⚠ <b>Delayed</b>' : '',
+                ])
             });
         });
 
-        return traces;
+        return { traces, categoryOrder: sortedOpNames };
     }, [barrels]);
 
     const updateChart = useCallback(() => {
         if (!chartRef.current || barrels.length === 0) return;
 
+        const { traces, categoryOrder } = chartData;
+
         const layout: Partial<Plotly.Layout> = {
             xaxis: {
                 title: {
-                    text: 'Global Time Line (ms)',
-                    font: { size: 14, color: '#f8fafc', family: 'Inter, sans-serif', weight: 600 },
+                    text: 'Timeline (ms)',
+                    font: { size: 13, color: '#94a3b8', family: 'Inter, sans-serif' },
                     standoff: 20
                 },
                 tickfont: { size: 11, color: '#94a3b8', family: 'JetBrains Mono, monospace' },
-                gridcolor: '#334155',
+                rangemode: 'tozero',
+                tickmode: 'auto',
+                tick0: 0,
+                // EXACT same behaviour as bar-graph gantt
+                tickformatstops: [
+                    {
+                        dtickrange: [null, 1000],
+                        value: 'd'
+                    },
+                    {
+                        dtickrange: [1000, null],
+                        value: '~s'
+                    }
+                ],
+                ticks: 'outside',
+                nticks: 12,
+                gridcolor: '#1e293b',
                 zeroline: false,
                 rangeslider: {
                     visible: true,
                     thickness: 0.05,
-                    bgcolor: '#0f172a',
-                    borderwidth: 1,
-                    bordercolor: '#334155'
+                    bgcolor: 'rgba(100,100,100,1)',  // Transparent background
+                    bordercolor: 'rgba(0,0,0,1)', 
+                    borderwidth: 0
                 }
             },
             yaxis: {
                 title: {
                     text: 'Operations',
-                    font: { size: 14, color: '#f8fafc', family: 'Inter, sans-serif', weight: 600 },
+                    font: { size: 13, color: '#94a3b8', family: 'Inter, sans-serif' },
                     standoff: 20
                 },
-                tickfont: { size: 11, color: '#f8fafc', family: 'Inter, sans-serif' },
+                tickfont: { size: 11, color: '#cbd5e1', family: 'Inter, sans-serif' },
                 automargin: true,
-                showgrid: false, // Explicitly removed horizontal lines
-                zeroline: false
+                showgrid: false,
+                zeroline: false,
+                categoryorder: 'array',
+                categoryarray: categoryOrder
             },
-            barmode: 'group', // Changed to group to handle the multiple traces per barrel correctly
-            bargap: 0.25,      // Matches OperationGanttChart
-            bargroupgap: 0.1,  // Matches OperationGanttChart
+            barmode: 'group',
+            bargap: 0.2,
+            bargroupgap: 0,
             plot_bgcolor: '#0b1121',
             paper_bgcolor: '#0b1121',
-            margin: { l: 20, r: 20, t: 10, b: 20 },
+            margin: { l: 20, r: 20, t: 30, b: 20 },
             hovermode: 'closest',
             autosize: true,
-            // Modebar customization specifically for the requested legend items
+            showlegend: true,
             legend: {
                 orientation: 'h',
-                y: -0.2 // Hidden generally as we handle it in UI, or can be enabled if needed
+                yanchor: 'bottom',
+                y: 1.02,
+                xanchor: 'left',
+                x: 0,
+                font: { color: '#cbd5e1', size: 12, family: 'Inter, sans-serif' }
             }
         };
 
@@ -172,13 +188,35 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
             responsive: true,
             displayModeBar: true,
             displaylogo: false,
-            scrollZoom: true,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d', 'autoScale2d']
+            modeBarButtonsToRemove: ['lasso2d', 'select2d']
         };
 
         requestAnimationFrame(() => {
             if (!chartRef.current) return;
-            Plotly.newPlot(chartRef.current, chartData, layout, config).then(() => {
+            Plotly.newPlot(chartRef.current, traces, layout, config).then(() => {
+                // Remove the mini-plot preview inside the rangeslider.
+                // Plotly doesn't expose an option to show the rangeslider control without the mini-plot.
+                // We hide the preview traces inside the rangeslider via a small DOM tweak after render.
+                try {
+                    const el = chartRef.current!;
+                    // .rangeslider is the container for the rangeslider; traces inside it typically carry the class 'trace'.
+                    const rs = el.querySelector('.rangeslider');
+                    if (rs) {
+                        rs.querySelectorAll('.trace').forEach(node => {
+                            (node as HTMLElement).style.display = 'none';
+                        });
+                        // Sometimes the mini axes/labels also appear — hide them as well (safe no-op if missing)
+                        rs.querySelectorAll('.xaxislayer, .yaxislayer, .carts').forEach(node => {
+                            (node as HTMLElement).style.display = 'none';
+                        });
+                    }
+                } catch (e) {
+                    // DOM tweak failed; it's non-fatal — slider will show preview in that case
+                    // (no user-visible action required)
+                    // eslint-disable-next-line no-console
+                    console.warn('Could not hide rangeslider preview', e);
+                }
+
                 Plotly.Plots.resize(chartRef.current!).then(() => {
                     if (onReady) onReady();
                 });
