@@ -71,7 +71,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                 GetDlgItemTextW(hDlg, IDC_EXE_NAME, exeName, AgentConstants::MAX_PATH_LENGTH);
 
                 settings_->configFilePath = configPath;
-                settings_->logFilePath = logPath;
+                settings_->logFolderPath = logPath;
                 settings_->modelFolderPath = modelPath;
                 if (modelVersion[0] != '\0') {
                     settings_->modelVersion = modelVersion;

@@ -2,7 +2,7 @@
     "configFilePath": "C:\\LAI\\LAI-Operational\\config.ini",
     "exeName": "msedge.exe",
     "lineNumber": 1,
-    "logFilePath": "C:\\LAI\\LAI-WorkData\\Log",
+    "logFolderPath": "C:\\LAI\\LAI-WorkData\\Log",
     "modelFolderPath": "C:\\LAI\\LAI-Operational\\Model",
     "pcId": 0,
     "pcNumber": 1,

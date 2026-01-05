@@ -9,7 +9,7 @@ struct AgentSettings {
     int lineNumber;
     int pcNumber;
     std::string configFilePath;
-    std::string logFilePath;
+    std::string logFolderPath;
     std::string modelFolderPath;
     std::string modelVersion;
     std::string ipAddress;       // <--- THIS WAS MISSING

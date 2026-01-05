@@ -30,6 +30,8 @@ private:
 
     bool ExecuteCommand(const json& command);
     void SendCommandResult(int commandId, const CommandResult& result);
+    std::string GetLogFolderPath(); // Helper for log analyzer
+
 
     CommandExecutor(const CommandExecutor&);
     CommandExecutor& operator=(const CommandExecutor&);

@@ -233,82 +233,92 @@ export default function Dashboard() {
                                         }} />
                                         {line.pcs.length} Units
                                     </div>
-                                    {/* Model Information */}
-                                    {(() => {
-                                        const compliance = getLineModelCompliance(line)
-                                        if (compliance.expectedModel) {
-                                            const isFullyCompliant = compliance.compliantCount === compliance.totalCount
-                                            return (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    {/* Enhanced Model name badge */}
-                                                    <div style={{
-                                                        padding: '0.3rem 0.65rem',
-                                                        background: 'linear-gradient(135deg, var(--primary-dim), transparent)',
-                                                        border: '1.5px solid var(--primary)',
-                                                        borderRadius: '10px',
-                                                        fontSize: '0.7rem',
-                                                        fontWeight: 600,
-                                                        color: 'var(--primary)',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '0.4rem',
-                                                        boxShadow: '0 2px 6px var(--primary-dim)',
-                                                        letterSpacing: '-0.01em'
-                                                    }}>
-                                                        <FileCode size={11} strokeWidth={2.5} />
-                                                        <span className="text-mono">{compliance.expectedModel}</span>
-                                                    </div>
-                                                    <div
-                                                        onClick={(e) => {
-                                                            if (!isFullyCompliant) {
-                                                                e.stopPropagation()
-                                                                handleComplianceClick(line.lineNumber, compliance.nonCompliantPCs)
-                                                            }
-                                                        }}
-                                                        style={{
-                                                            padding: '0.2rem 0.5rem',
-                                                            borderRadius: '999px',
-                                                            fontSize: '0.6rem',
-                                                            background: isFullyCompliant ? 'var(--success-bg)' : 'var(--danger-bg)',
-                                                            color: isFullyCompliant ? 'var(--success)' : 'var(--danger)',
-                                                            border: `1px solid ${isFullyCompliant ? 'var(--success)' : 'var(--danger)'}`,
-                                                            cursor: isFullyCompliant ? 'default' : 'pointer',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '0.2rem'
-                                                        }}
-                                                        title={isFullyCompliant ? 'All PCs compliant' : 'Click to see non-compliant PCs'}
-                                                    >
-                                                        {!isFullyCompliant && <AlertCircle size={10} />}
-                                                        {compliance.compliantCount}/{compliance.totalCount}
-                                                    </div>
-                                                </div>
-                                            )
-                                        }
-                                        return null
-                                    })()}
+
+                                    {/* Only show model info when viewing a specific version */}
+                                    {version && (
+                                        <>
+                                            {/* Model Information */}
+                                            {(() => {
+                                                const compliance = getLineModelCompliance(line)
+                                                if (compliance.expectedModel) {
+                                                    const isFullyCompliant = compliance.compliantCount === compliance.totalCount
+                                                    return (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                            {/* Enhanced Model name badge */}
+                                                            <div style={{
+                                                                padding: '0.3rem 0.65rem',
+                                                                background: 'linear-gradient(135deg, var(--primary-dim), transparent)',
+                                                                border: '1.5px solid var(--primary)',
+                                                                borderRadius: '10px',
+                                                                fontSize: '0.7rem',
+                                                                fontWeight: 600,
+                                                                color: 'var(--primary)',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '0.4rem',
+                                                                boxShadow: '0 2px 6px var(--primary-dim)',
+                                                                letterSpacing: '-0.01em'
+                                                            }}>
+                                                                <FileCode size={11} strokeWidth={2.5} />
+                                                                <span className="text-mono">{compliance.expectedModel}</span>
+                                                            </div>
+                                                            <div
+                                                                onClick={(e) => {
+                                                                    if (!isFullyCompliant) {
+                                                                        e.stopPropagation()
+                                                                        handleComplianceClick(line.lineNumber, compliance.nonCompliantPCs)
+                                                                    }
+                                                                }}
+                                                                style={{
+                                                                    padding: '0.2rem 0.5rem',
+                                                                    borderRadius: '999px',
+                                                                    fontSize: '0.6rem',
+                                                                    background: isFullyCompliant ? 'var(--success-bg)' : 'var(--danger-bg)',
+                                                                    color: isFullyCompliant ? 'var(--success)' : 'var(--danger)',
+                                                                    border: `1px solid ${isFullyCompliant ? 'var(--success)' : 'var(--danger)'}`,
+                                                                    cursor: isFullyCompliant ? 'default' : 'pointer',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '0.2rem'
+                                                                }}
+                                                                title={isFullyCompliant ? 'All PCs compliant' : 'Click to see non-compliant PCs'}
+                                                            >
+                                                                {!isFullyCompliant && <AlertCircle size={10} />}
+                                                                {compliance.compliantCount}/{compliance.totalCount}
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                }
+                                                return null
+                                            })()}
+                                        </>
+                                    )}
                                 </div>
-                                <button
-                                    className="btn btn-primary"
-                                    style={{
-                                        fontSize: '0.7rem',
-                                        padding: '0.35rem 0.75rem',
-                                        height: 'auto'
-                                    }}
-                                    onClick={(e) => {
-                                        e.stopPropagation()
-                                        setManagingLine(line.lineNumber)
-                                    }}
-                                >
-                                    Manage Models
-                                </button>
+
+                                {/* Only show Manage Models button when viewing a specific version */}
+                                {version && (
+                                    <button
+                                        className="btn btn-primary"
+                                        style={{
+                                            fontSize: '0.7rem',
+                                            padding: '0.35rem 0.75rem',
+                                            height: 'auto'
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            setManagingLine(line.lineNumber)
+                                        }}
+                                    >
+                                        Manage Models
+                                    </button>
+                                )}
                             </div>
 
                             {/* Collapsible Line Content */}
                             <div className={`line-content ${expandedLines[line.lineNumber] ? '' : 'collapsed'}`}>
                                 {viewMode === 'cards' ? (
                                     <div className="pc-grid">
-                                        {line.pcs.map(pc => <PCCard key={pc.pcId} pc={pc} onClick={setSelectedPC} />)}
+                                        {line.pcs.map(pc => <PCCard key={pc.pcId} pc={pc} onClick={setSelectedPC} showVersion={!version} />)}
                                     </div>
                                 ) : (
                                     <div className="table-container">
@@ -351,6 +361,7 @@ export default function Dashboard() {
             {managingLine !== null && (
                 <LineModelManagerModal
                     lineNumber={managingLine}
+                    version={version}
                     onClose={() => setManagingLine(null)}
                     onOperationComplete={() => {
                         // Aggressive refresh strategy for instant model name updates

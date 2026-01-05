@@ -9,6 +9,7 @@ C:\Users\Divyansh V\Desktop\project\FactoryAgent\src\services\ConfigService.cpp;
 C:\Users\Divyansh V\Desktop\project\FactoryAgent\src\services\HeartbeatService.cpp;C:\Users\Divyansh V\Desktop\project\FactoryAgent\FactoryAgent\x64\Release\HeartbeatService.obj
 C:\Users\Divyansh V\Desktop\project\FactoryAgent\src\services\LogService.cpp;C:\Users\Divyansh V\Desktop\project\FactoryAgent\FactoryAgent\x64\Release\LogService.obj
 C:\Users\Divyansh V\Desktop\project\FactoryAgent\src\services\ModelService.cpp;C:\Users\Divyansh V\Desktop\project\FactoryAgent\FactoryAgent\x64\Release\ModelService.obj
+C:\Users\Divyansh V\Desktop\project\FactoryAgent\src\services\LogAnalyzerCommands.cpp;C:\Users\Divyansh V\Desktop\project\FactoryAgent\FactoryAgent\x64\Release\LogAnalyzerCommands.obj
 C:\Users\Divyansh V\Desktop\project\FactoryAgent\src\services\RegistrationService.cpp;C:\Users\Divyansh V\Desktop\project\FactoryAgent\FactoryAgent\x64\Release\RegistrationService.obj
 C:\Users\Divyansh V\Desktop\project\FactoryAgent\src\ui\RegistrationDialog.cpp;C:\Users\Divyansh V\Desktop\project\FactoryAgent\FactoryAgent\x64\Release\RegistrationDialog.obj
 C:\Users\Divyansh V\Desktop\project\FactoryAgent\src\ui\TrayIcon.cpp;C:\Users\Divyansh V\Desktop\project\FactoryAgent\FactoryAgent\x64\Release\TrayIcon.obj

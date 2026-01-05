@@ -10,12 +10,15 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "axios": "^1.6.2",
+    "clsx": "^2.0.0",
+    "framer-motion": "^12.23.26",
+    "lucide-react": "^0.294.0",
+    "plotly.js-dist-min": "^3.3.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.20.0",
-    "axios": "^1.6.2",
-    "lucide-react": "^0.294.0",
-    "clsx": "^2.0.0"
+    "react-plotly.js": "^2.6.0",
+    "react-router-dom": "^6.20.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
@@ -30,4 +33,3 @@
     "vite": "^5.0.8"
   }
 }
-

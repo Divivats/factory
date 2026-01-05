@@ -126,8 +126,10 @@ export const factoryApi = {
     },
 
     // Line Model Management
-    getLineAvailableModels: async (lineNumber: number): Promise<LineModelOption[]> => {
-        const { data } = await api.get(`/ModelLibrary/line-available/${lineNumber}`)
+    getLineAvailableModels: async (lineNumber: number, version?: string): Promise<LineModelOption[]> => {
+        const params = new URLSearchParams();
+        if (version) params.append('version', version);
+        const { data } = await api.get(`/ModelLibrary/line-available/${lineNumber}?${params}`)
         return data
     },
 

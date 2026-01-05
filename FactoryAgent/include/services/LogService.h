@@ -20,10 +20,13 @@ public:
     ~LogService();
 
     void SyncLogsToServer();
+    static std::string FormatTime(std::filesystem::file_time_type ftime);
+    static nlohmann::json BuildDirectoryTree(const std::filesystem::path& currentPath, const std::filesystem::path& rootPath);
 
 private:
     AgentSettings* settings_;
     HttpClient* httpClient_;
+    std::string lastSyncedStructure_;
 
     LogService(const LogService&);
     LogService& operator=(const LogService&);

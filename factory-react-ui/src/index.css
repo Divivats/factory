@@ -742,3 +742,12 @@ select option {
     /* Hide content when collapsed */
     opacity: 0;
 }
+
+[data-theme="light"] .sidebar-link:hover {
+    background: var(--bg-hover);
+    color: var(--text-main);
+}
+
+[data-theme="light"] .sidebar-logo {
+    color: var(--text-main);
+}

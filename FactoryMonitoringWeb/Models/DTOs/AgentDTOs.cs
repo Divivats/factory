@@ -10,9 +10,10 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public int PCNumber { get; set; }
         public string IPAddress { get; set; } = string.Empty;
         public string ConfigFilePath { get; set; } = string.Empty;
-        public string LogFilePath { get; set; } = string.Empty;
+        public string LogFolderPath { get; set; } = string.Empty;
         public string ModelFolderPath { get; set; } = string.Empty;
         public string ModelVersion { get; set; } = "3.5";
+        public string? LogStructureJson { get; set; }
     }
 
     public class AgentRegistrationResponse
@@ -70,6 +71,13 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public string ModelName { get; set; } = string.Empty;
         public string ModelPath { get; set; } = string.Empty;
         public bool IsCurrent { get; set; }
+    }
+
+    // Log Structure Sync Request
+    public class LogStructureSyncRequest
+    {
+        public int PCId { get; set; }
+        public string LogStructureJson { get; set; } = string.Empty;
     }
 
     // Command Result Request

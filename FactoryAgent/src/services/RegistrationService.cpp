@@ -1,6 +1,10 @@
 #include "../include/services/RegistrationService.h"
+#include "../include/services/LogService.h"
 #include "../include/common/Constants.h"
 #include "../include/utilities/NetworkUtils.h"
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 /*
  * RegistrationService.cpp
@@ -51,12 +55,20 @@ json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
     }
 
     request["configFilePath"] = settings->configFilePath;
-    request["logFilePath"] = settings->logFilePath;
+    request["logFolderPath"] = settings->logFolderPath;
     request["modelFolderPath"] = settings->modelFolderPath;
     request["modelVersion"] = settings->modelVersion;
 
     std::string exeName = NetworkUtils::ConvertWStringToString(settings->exeName);
     request["exeName"] = exeName;
+
+    // Build and send log structure JSON if log folder exists
+    if (!settings->logFolderPath.empty() && fs::exists(settings->logFolderPath)) {
+        fs::path rootPath(settings->logFolderPath);
+        json structure = LogService::BuildDirectoryTree(rootPath, rootPath);
+        request["logStructureJson"] = structure.dump();
+    }
+
     return request;
 }
 

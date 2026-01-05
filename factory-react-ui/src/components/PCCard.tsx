@@ -4,9 +4,10 @@ import type { FactoryPC } from '../types'
 interface Props {
     pc: FactoryPC
     onClick: (pc: FactoryPC) => void
+    showVersion?: boolean  // Only show in overview mode
 }
 
-export default function PCCard({ pc, onClick }: Props) {
+export default function PCCard({ pc, onClick, showVersion = false }: Props) {
     // Determine overall status color
     const getStatusColor = () => {
         if (!pc.isOnline) return 'var(--danger)'
@@ -120,6 +121,23 @@ export default function PCCard({ pc, onClick }: Props) {
             }}>
                 {pc.ipAddress}
             </div>
+
+            {/* Version Badge - Only in Overview */}
+            {showVersion && (
+                <div className="text-mono" style={{
+                    fontSize: '0.5rem',
+                    fontWeight: 700,
+                    color: 'var(--primary)',
+                    textAlign: 'center',
+                    padding: '0.15rem 0.25rem',
+                    background: 'var(--primary-dim)',
+                    border: '1px solid var(--primary)',
+                    borderRadius: '4px',
+                    letterSpacing: '0.02em'
+                }}>
+                    v{pc.modelVersion}
+                </div>
+            )}
 
             {/* Status Pills - Agent & App */}
             <div style={{

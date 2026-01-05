@@ -9,11 +9,12 @@ import { OfflineAlertModal } from './OfflineAlertModal'
 
 interface Props {
     lineNumber: number
+    version?: string
     onClose: () => void
     onOperationComplete?: () => void
 }
 
-export default function LineModelManagerModal({ lineNumber, onClose, onOperationComplete }: Props) {
+export default function LineModelManagerModal({ lineNumber, version, onClose, onOperationComplete }: Props) {
     const [loading, setLoading] = useState(true)
     const [models, setModels] = useState<LineModelOption[]>([])
     const [selectedModel, setSelectedModel] = useState<string>('')
@@ -52,16 +53,14 @@ export default function LineModelManagerModal({ lineNumber, onClose, onOperation
     }, [lineNumber])
 
     const loadModels = async () => {
-        setLoading(true)
         try {
-            const data = await factoryApi.getLineAvailableModels(lineNumber)
+            setLoading(true)
+            const data = await factoryApi.getLineAvailableModels(lineNumber, version)
             setModels(data)
-        } catch (err) {
-            console.error(err)
-            showToast("Failed to load line models", 'error')
+        } catch (err: any) {
+            console.error('Failed to load models:', err)
         } finally {
             setLoading(false)
-            setIsApplying(false)
             // Trigger immediate dashboard refresh
             if (onOperationComplete) onOperationComplete()
         }
@@ -69,7 +68,7 @@ export default function LineModelManagerModal({ lineNumber, onClose, onOperation
 
     // Reuseable PC Fetcher
     const fetchLinePCs = async () => {
-        const res = await factoryApi.getPCs(undefined, lineNumber)
+        const res = await factoryApi.getPCs(version, lineNumber)
         let linePCs: any[] = []
         if (res && res.lines && Array.isArray(res.lines)) {
             res.lines.forEach((g: any) => {
@@ -299,8 +298,9 @@ export default function LineModelManagerModal({ lineNumber, onClose, onOperation
                     const useSelected = targets.length < model.totalPCsInLine;
                     const payload: ApplyModelRequest = {
                         modelFileId: model.modelFileId || 0,
-                        targetType: useSelected ? 'selected' : 'line',
+                        targetType: useSelected ? 'selected' : (version ? 'lineandversion' : 'line'),
                         lineNumber: lineNumber,
+                        version: version,
                         applyImmediately: true,
                         forceOverwrite: forceOverwrite,
                         modelName: model.modelName

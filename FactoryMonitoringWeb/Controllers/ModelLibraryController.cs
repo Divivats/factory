@@ -280,15 +280,17 @@ namespace FactoryMonitoringWeb.Controllers
                     _context.AgentCommands.Add(command);
                 }
 
-                // Update target model for affected lines
-                // Get distinct line numbers from the target PCs
-                var affectedLines = targetPCs.Select(p => p.LineNumber).Distinct().ToList();
+                // Get distinct line numbers and versions from the target PCs
+                var affectedLinesAndVersions = targetPCs
+                    .GroupBy(p => new { p.LineNumber, p.ModelVersion })
+                    .Select(g => g.Key)
+                    .ToList();
                 
-                foreach (var lineNumber in affectedLines)
+                foreach (var item in affectedLinesAndVersions)
                 {
                     // targetModelName is already defined in the outer scope (line 156)
                     var lineTarget = await _context.LineTargetModels
-                        .FirstOrDefaultAsync(ltm => ltm.LineNumber == lineNumber);
+                        .FirstOrDefaultAsync(ltm => ltm.LineNumber == item.LineNumber && ltm.ModelVersion == item.ModelVersion);
                     
                     if (lineTarget != null)
                     {
@@ -302,7 +304,8 @@ namespace FactoryMonitoringWeb.Controllers
                         // Create new target
                         _context.LineTargetModels.Add(new LineTargetModel
                         {
-                            LineNumber = lineNumber,
+                            LineNumber = item.LineNumber,
+                            ModelVersion = item.ModelVersion,
                             TargetModelName = targetModelName,
                             SetByUser = "System",
                             SetDate = DateTime.Now,
@@ -334,15 +337,20 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // GET: api/ModelLibrary/line-available/{lineNumber}
+        // GET: api/ModelLibrary/line-available/{lineNumber}?version=3.5
         [HttpGet("line-available/{lineNumber}")]
-        public async Task<ActionResult<IEnumerable<object>>> GetLineAvailableModels(int lineNumber)
+        public async Task<ActionResult<IEnumerable<object>>> GetLineAvailableModels(int lineNumber, [FromQuery] string? version)
         {
             try
             {
-                // 1. Get all PCs in this line
-                var linePCs = await _context.FactoryPCs
-                    .Where(p => p.LineNumber == lineNumber)
+                // 1. Get all PCs in this line (filtered by version if provided)
+                var query = _context.FactoryPCs.Where(p => p.LineNumber == lineNumber);
+                if (!string.IsNullOrEmpty(version))
+                {
+                    query = query.Where(p => p.ModelVersion == version);
+                }
+                
+                var linePCs = await query
                     .Select(p => p.PCId)
                     .ToListAsync();
                 

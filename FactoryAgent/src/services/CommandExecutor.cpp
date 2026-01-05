@@ -1,4 +1,5 @@
 #include "../include/services/CommandExecutor.h"
+#include "../include/services/LogAnalyzerCommands.h"
 #include "../include/services/ConfigService.h"
 #include "../include/services/ModelService.h"
 #include "../include/network/HttpClient.h"
@@ -92,6 +93,42 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
+    else if (commandType == "GetLogFileContent") {
+        if (command.contains("commandData")) {
+            try {
+                json data = json::parse(command["commandData"].get<std::string>());
+                std::string filePath = data.value("FilePath", "");
+
+                // If path is relative (no drive letter), prepend the log folder path
+                if (filePath.find(':') == std::string::npos) {
+                    std::string logFolder = GetLogFolderPath();
+                    filePath = logFolder + "\\" + filePath;
+                    data["FilePath"] = filePath;
+                }
+
+                // Call LogAnalyzer to read the file
+                std::string contentResult = LogAnalyzer::HandleGetLogFileContent(data.dump());
+
+                // Parse the analyzer result to check success
+                json contentJson = json::parse(contentResult);
+                if (contentJson.value("success", false)) {
+                    result.success = true;
+                    result.status = AgentConstants::STATUS_COMPLETED;
+                    result.resultData = contentResult; // Send the JSON containing file content
+                }
+                else {
+                    result.success = false;
+                    result.status = AgentConstants::STATUS_FAILED;
+                    result.errorMessage = contentJson.value("error", "Unknown error reading log file");
+                }
+            }
+            catch (const std::exception& ex) {
+                result.success = false;
+                result.status = AgentConstants::STATUS_FAILED;
+                result.errorMessage = ex.what();
+            }
+        }
+    }
 
     SendCommandResult(commandId, result);
     return result.success;
@@ -106,4 +143,9 @@ void CommandExecutor::SendCommandResult(int commandId, const CommandResult& resu
 
     json response;
     httpClient_->Post(AgentConstants::ENDPOINT_COMMAND_RESULT, request, response);
+}
+
+std::string CommandExecutor::GetLogFolderPath() {
+    // TODO: Read from config or constants instead of hardcoding
+    return "C:\\LAI\\LAI-WorkData\\Log";
 }

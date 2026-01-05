@@ -14,6 +14,10 @@ namespace FactoryMonitoringWeb.Models
         public int LineNumber { get; set; }
 
         [Required]
+        [MaxLength(20)]
+        public string ModelVersion { get; set; } = "3.5";
+
+        [Required]
         [MaxLength(255)]
         public string TargetModelName { get; set; } = string.Empty;
 

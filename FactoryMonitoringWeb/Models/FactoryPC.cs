@@ -30,7 +30,7 @@ namespace FactoryMonitoringWeb.Models
 
         [Required]
         [StringLength(500)]
-        public string LogFilePath { get; set; } = string.Empty;
+        public string LogFolderPath { get; set; } = string.Empty;
 
         [Required]
         [StringLength(500)]
@@ -40,6 +40,9 @@ namespace FactoryMonitoringWeb.Models
         [Required]
         [StringLength(20)]
         public string ModelVersion { get; set; } = "3.5";
+
+        // Log analyzer support: stores JSON structure of log files/folders
+        public string? LogStructureJson { get; set; }
 
         public bool IsApplicationRunning { get; set; } = false;
 

@@ -11,8 +11,8 @@ namespace FactoryMonitoringWeb.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<HeartbeatMonitorService> _logger;
-        private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(30); // Check every 30 seconds
-        private readonly TimeSpan _heartbeatTimeout = TimeSpan.FromSeconds(60); // 60 seconds timeout
+        private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(5);
+        private readonly TimeSpan _heartbeatTimeout = TimeSpan.FromSeconds(15);
 
         public HeartbeatMonitorService(
             IServiceProvider serviceProvider,

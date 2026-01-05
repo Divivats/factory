@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
-import { Server, Package, LayoutGrid, Box, ChevronRight, ChevronDown, Activity, Sun, Moon } from 'lucide-react'
+import { Server, Package, LayoutGrid, Box, ChevronRight, ChevronDown, Activity, Sun, Moon, ScrollText } from 'lucide-react'
 import { factoryApi } from '../services/api'
 import { useTheme } from '../contexts/ThemeContext'
 
@@ -93,7 +93,7 @@ export default function Sidebar() {
                     <Link to="/dashboard" className={`sidebar-link ${isActive('/dashboard') ? 'active' : ''}`}>
                         <LayoutGrid size={18} />
                         <span style={{ flex: 1 }}>Overview</span>
-                        {isActive('/dashboard') && <ChevronRight size={14} />}
+                        {isActive('/dashboard')}
                     </Link>
                 </div>
 
@@ -164,6 +164,10 @@ export default function Sidebar() {
                     <Link to="/models" className={`sidebar-link ${isActive('/models') ? 'active' : ''}`}>
                         <Package size={18} />
                         <span>Model Library</span>
+                    </Link>
+                    <Link to="/log-analyzer" className={`sidebar-link ${location.pathname === '/log-analyzer' ? 'active' : ''}`}>
+                        <ScrollText size={18} />
+                        <span>Log Analyzer</span>
                     </Link>
                 </div>
             </nav>

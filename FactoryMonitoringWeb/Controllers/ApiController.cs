@@ -101,8 +101,10 @@ namespace FactoryMonitoringWeb.Controllers
                     })
                     .ToListAsync();
 
-                // Get target models for all lines
-                var targetModels = await _context.LineTargetModels.ToDictionaryAsync(ltm => ltm.LineNumber, ltm => ltm.TargetModelName);
+                // Get target models for lines in this version
+                var targetModels = await _context.LineTargetModels
+                    .Where(ltm => ltm.ModelVersion == version)
+                    .ToDictionaryAsync(ltm => ltm.LineNumber, ltm => ltm.TargetModelName);
 
                 // Group by line and include target model
                 var grouped = pcs.GroupBy(p => p.LineNumber)
@@ -154,7 +156,7 @@ namespace FactoryMonitoringWeb.Controllers
                     pc.IPAddress,
                     pc.ModelVersion,
                     pc.ConfigFilePath,
-                    pc.LogFilePath,
+                    pc.LogFolderPath,
                     pc.ModelFolderPath,
                     pc.IsOnline,
                     pc.IsApplicationRunning,

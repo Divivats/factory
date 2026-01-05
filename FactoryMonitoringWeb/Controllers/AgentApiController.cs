@@ -26,7 +26,9 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var existingPC = await _context.FactoryPCs
-                    .FirstOrDefaultAsync(p => p.LineNumber == request.LineNumber && p.PCNumber == request.PCNumber);
+                    .FirstOrDefaultAsync(p => p.LineNumber == request.LineNumber 
+                                            && p.PCNumber == request.PCNumber 
+                                            && p.ModelVersion == request.ModelVersion);
 
                 int pcId;
 
@@ -38,24 +40,25 @@ namespace FactoryMonitoringWeb.Controllers
                         PCNumber = request.PCNumber,
                         IPAddress = request.IPAddress,
                         ConfigFilePath = request.ConfigFilePath,
-                        LogFilePath = request.LogFilePath,
+                        LogFolderPath = request.LogFolderPath,
                         ModelFolderPath = request.ModelFolderPath,
                         ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion) ? "3.5" : request.ModelVersion,
                         IsOnline = true,
-                        LastHeartbeat = DateTime.Now
+                        LastHeartbeat = DateTime.Now,
+                        LogStructureJson = request.LogStructureJson
                     };
 
                     _context.FactoryPCs.Add(newPC);
                     await _context.SaveChangesAsync();
                     pcId = newPC.PCId;
 
-                    _logger.LogInformation($"New PC registered: Line {request.LineNumber}, PC {request.PCNumber}");
+                    _logger.LogInformation($"New PC registered: Line {request.LineNumber}, PC {request.PCNumber}, Version {request.ModelVersion}");
                 }
                 else
                 {
                     existingPC.IPAddress = request.IPAddress;
                     existingPC.ConfigFilePath = request.ConfigFilePath;
-                    existingPC.LogFilePath = request.LogFilePath;
+                    existingPC.LogFolderPath = request.LogFolderPath;
                     existingPC.ModelFolderPath = request.ModelFolderPath;
                     existingPC.ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion)
                         ? existingPC.ModelVersion
@@ -64,10 +67,15 @@ namespace FactoryMonitoringWeb.Controllers
                     existingPC.LastHeartbeat = DateTime.Now;
                     existingPC.LastUpdated = DateTime.Now;
 
+                    if (!string.IsNullOrEmpty(request.LogStructureJson))
+                    {
+                        existingPC.LogStructureJson = request.LogStructureJson;
+                    }
+
                     await _context.SaveChangesAsync();
                     pcId = existingPC.PCId;
 
-                    _logger.LogInformation($"PC re-registered: Line {request.LineNumber}, PC {request.PCNumber}");
+                    _logger.LogInformation($"PC re-registered: Line {request.LineNumber}, PC {request.PCNumber}, Version {request.ModelVersion}");
                 }
 
                 return Ok(new AgentRegistrationResponse
@@ -228,6 +236,27 @@ namespace FactoryMonitoringWeb.Controllers
                     Success = false,
                     Message = $"Log update failed: {ex.Message}"
                 });
+            }
+        }
+
+        [HttpPost("synclogs")]
+        public async Task<ActionResult<ApiResponse>> SyncLogStructure([FromBody] LogStructureSyncRequest request)
+        {
+            try
+            {
+                var pc = await _context.FactoryPCs.FindAsync(request.PCId);
+                if (pc == null) return NotFound(new ApiResponse { Success = false, Message = "PC not found" });
+
+                pc.LogStructureJson = request.LogStructureJson;
+                pc.LastUpdated = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+                return Ok(new ApiResponse { Success = true, Message = "Log structure synced" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing log structure");
+                return StatusCode(500, new ApiResponse { Success = false, Message = ex.Message });
             }
         }
 

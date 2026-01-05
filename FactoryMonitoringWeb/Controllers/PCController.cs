@@ -84,7 +84,7 @@ namespace FactoryMonitoringWeb.Controllers
                 }
 
                 var pc = await _context.FactoryPCs.FindAsync(pcId);
-                var fileName = $"config_Line{pc?.LineNumber ?? 0}_PC{pc?.PCNumber ?? 0}.ini";
+                var fileName = $"config_Line{pc?.LineNumber ?? 0}_PC{pc?.PCNumber ?? 0}.txt";
 
                 var bytes = Encoding.UTF8.GetBytes(config.ConfigContent);
                 return File(bytes, "text/plain", fileName);
