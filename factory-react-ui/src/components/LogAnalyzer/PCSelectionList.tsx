@@ -1,6 +1,6 @@
-﻿import { useMemo } from 'react';
-import { Monitor, ChevronRight, Box, Activity } from 'lucide-react';
-import { motion } from 'framer-motion';
+﻿import { useMemo, useState, useEffect } from 'react';
+import { Server, Activity } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { FactoryPC } from '../../types';
 
 export interface PCWithVersion extends FactoryPC {
@@ -15,6 +15,7 @@ interface Props {
 }
 
 export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
+    // Group Data: Version -> Line -> PCs[]
     const groupedPCs = useMemo(() => {
         return pcs.reduce((acc: Record<string, Record<number, PCWithVersion[]>>, pc) => {
             if (!acc[pc.version]) acc[pc.version] = {};
@@ -24,194 +25,167 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
         }, {});
     }, [pcs]);
 
+    const versions = useMemo(() => Object.keys(groupedPCs).sort(), [groupedPCs]);
+
+    const [activeTab, setActiveTab] = useState<string>('');
+
+    // Set initial tab to the first version (3.5)
+    useEffect(() => {
+        if (versions.length > 0 && !activeTab) {
+            setActiveTab(versions[0]);
+        }
+    }, [versions, activeTab]);
+
     if (loading) {
         return (
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-dim)' }}
-            >
-                <div
-                    style={{
-                        display: 'inline-block',
-                        width: '40px',
-                        height: '40px',
-                        border: '4px solid var(--border)',
-                        borderTopColor: '#3b82f6',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite',
-                        marginBottom: '1rem'
-                    }}
-                />
-                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>Loading PCs...</p>
-
-                <style>{`
-                    @keyframes spin {
-                        to { transform: rotate(360deg); }
-                    }
-                `}</style>
-            </motion.div>
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
+                <div style={{ width: 24, height: 24, border: '2px solid var(--border)', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
         );
     }
 
+    const currentLines = activeTab && groupedPCs[activeTab] ? groupedPCs[activeTab] : {};
+
     return (
-        <div className="card" style={{ padding: 0, overflow: 'hidden', height: '100%' }}>
-            {/* Header */}
-            <div
-                style={{
-                    padding: '1.5rem',
-                    borderBottom: '2px solid var(--border)',
-                    background: 'linear-gradient(135deg, var(--bg-panel), var(--bg-card))'
-                }}
-            >
-                <h2
-                    style={{
-                        fontSize: '1.2rem',
-                        fontWeight: 700,
-                        color: '#60a5fa',
-                        margin: 0,
-                        marginBottom: '0.5rem'
-                    }}
-                >
-                    Select PC to Analyze Logs
-                </h2>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', margin: 0 }}>
-                    Choose a PC to view and analyze its log files
-                </p>
+        <div className="card" style={{ padding: 0, height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-card)' }}>
+
+            {/* --- Header & Tabs --- */}
+            <div style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-panel)' }}>
+                <div style={{ padding: '0.5rem 0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <h2 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Server size={14} color="#3b82f6" />
+                        Select PC
+                    </h2>
+
+                    {/* Tabs */}
+                    <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-main)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                        {versions.map(ver => (
+                            <button
+                                key={ver}
+                                onClick={() => setActiveTab(ver)}
+                                style={{
+                                    border: 'none',
+                                    background: activeTab === ver ? '#3b82f6' : 'transparent',
+                                    color: activeTab === ver ? '#fff' : 'var(--text-dim)',
+                                    padding: '0.2rem 0.6rem',
+                                    borderRadius: '4px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                v{ver}
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </div>
 
-            {/* List */}
-            <div style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
-                {Object.entries(groupedPCs).map(([version, lines], versionIndex) => (
+            {/* --- Scrollable Content --- */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem' }}>
+                <AnimatePresence mode="wait">
                     <motion.div
-                        key={version}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: versionIndex * 0.1 }}
+                        key={activeTab}
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        transition={{ duration: 0.15 }}
                     >
-                        {/* Version Header */}
-                        <div
-                            style={{
-                                padding: '1rem 1.5rem',
-                                background: 'linear-gradient(90deg, rgba(59,130,246,0.15), transparent)',
-                                borderBottom: '1px solid var(--border)',
-                                position: 'sticky',
-                                top: 0,
-                                zIndex: 10,
-                                backdropFilter: 'blur(12px)'
-                            }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <Box size={18} color="#3b82f6" />
-                                <span style={{ fontSize: '1rem', fontWeight: 700 }}>
-                                    Version {version}
-                                </span>
-                                <span className="badge badge-primary" style={{ fontSize: '0.7rem' }}>
-                                    {Object.values(lines).flat().length} PCs
-                                </span>
-                            </div>
-                        </div>
+                        {Object.entries(currentLines).map(([lineStr, linePCs]) => (
+                            <div key={lineStr} style={{ marginBottom: '0.75rem' }}>
 
-                        {/* Lines */}
-                        {Object.entries(lines).map(([line, linePCs]) => (
-                            <div key={line}>
-                                {/* Line Header */}
-                                <div
-                                    style={{
-                                        padding: '0.75rem 1.5rem 0.75rem 3rem',
-                                        background: 'var(--bg-hover)',
-                                        borderBottom: '1px solid var(--border)',
-                                        position: 'sticky',
-                                        top: 52,
-                                        zIndex: 9
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        <Activity size={16} color="var(--success)" />
-                                        <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
-                                            Line {line}
-                                        </span>
-                                        <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>
-                                            {linePCs.length} PCs
-                                        </span>
-                                    </div>
+                                {/* Line Divider */}
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    padding: '0 0.25rem',
+                                    marginBottom: '0.5rem',
+                                    color: 'var(--text-dim)',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600,
+                                    textTransform: 'uppercase'
+                                }}>
+                                    <Activity size={10} />
+                                    Line {lineStr}
+                                    <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
                                 </div>
 
-                                {/* PCs */}
-                                {linePCs.map((pc, index) => (
-                                    <motion.div
-                                        key={pc.pcId}
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: index * 0.05 }}
-                                        onClick={() => onSelectPC(pc)}
-                                        style={{
-                                            padding: '1rem 1.5rem 1rem 5rem',
-                                            borderBottom: '1px solid var(--border)',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.background =
-                                                'rgba(59, 130, 246, 0.05)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.background = 'transparent';
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                            <Monitor size={20} color="#3b82f6" />
-                                            <div>
-                                                <div style={{ fontWeight: 700 }}>
-                                                    PC-{pc.pcNumber}
-                                                </div>
-                                                <div
-                                                    className="text-mono"
-                                                    style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}
-                                                >
-                                                    {pc.ipAddress}
-                                                </div>
-                                            </div>
-                                        </div>
+                                {/* Square Grid */}
+                                <div style={{
+                                    display: 'grid',
+                                    // Adjust 80px to control minimum square size
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(85px, 1fr))',
+                                    gap: '0.5rem'
+                                }}>
+                                    {linePCs.map((pc) => (
+                                        <motion.div
+                                            key={pc.pcId}
+                                            whileHover={{ scale: 1.05, y: -2 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => onSelectPC(pc)}
+                                            style={{
+                                                aspectRatio: '1', // Forces perfect square
+                                                background: 'var(--bg-main)',
+                                                border: `1px solid ${pc.isOnline ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                                                borderRadius: '8px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                position: 'relative',
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                            }}
+                                        >
+                                            {/* Status Dot */}
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: '6px',
+                                                right: '6px',
+                                                width: '6px',
+                                                height: '6px',
+                                                borderRadius: '50%',
+                                                background: pc.isOnline ? '#10b981' : '#ef4444',
+                                                boxShadow: pc.isOnline ? '0 0 4px #10b981' : 'none'
+                                            }} />
 
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                            <span
-                                                className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'
-                                                    }`}
-                                            >
-                                                <span
-                                                    style={{
-                                                        display: 'inline-block',
-                                                        width: 6,
-                                                        height: 6,
-                                                        borderRadius: '50%',
-                                                        background: 'currentColor',
-                                                        marginRight: '0.5rem',
-                                                        animation: pc.isOnline
-                                                            ? 'pulse 2s infinite'
-                                                            : 'none'
-                                                    }}
-                                                />
-                                                {pc.isOnline ? 'Online' : 'Offline'}
-                                            </span>
-                                            <ChevronRight size={18} />
-                                        </div>
-                                    </motion.div>
-                                ))}
+                                            {/* IP Address */}
+                                            <div style={{
+                                                fontSize: '0.75rem',
+                                                fontWeight: 600,
+                                                color: 'var(--text-main)',
+                                                textAlign: 'center',
+                                                lineHeight: 1.2
+                                            }}>
+                                                {pc.ipAddress}
+                                            </div>
+
+                                            <div style={{
+                                                fontSize: '0.6rem',
+                                                color: pc.isOnline ? '#10b981' : '#ef4444',
+                                                marginTop: '4px',
+                                                fontWeight: 500
+                                            }}>
+                                                PC-{pc.pcNumber}
+                                            </div>
+
+                                        </motion.div>
+                                    ))}
+                                </div>
                             </div>
                         ))}
-                    </motion.div>
-                ))}
-            </div>
 
-            <style>{`
-                @keyframes pulse {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0.5; }
-                }
-            `}</style>
+                        {Object.keys(currentLines).length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.5, fontSize: '0.8rem' }}>
+                                No PCs on v{activeTab}
+                            </div>
+                        )}
+                    </motion.div>
+                </AnimatePresence>
+            </div>
         </div>
     );
 }

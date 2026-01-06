@@ -144,7 +144,6 @@ export default function LogFileSelector({
     useEffect(() => {
         const years = getSortedYears();
         if (years.length > 0) handleYearChange(years[0]);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dateHierarchy]);
 
     const files = useMemo(() => {
@@ -153,7 +152,6 @@ export default function LogFileSelector({
             : [];
     }, [selectedYear, selectedMonth, selectedDay, dateHierarchy]);
 
-    // Scroll focused item into view
     useEffect(() => {
         if (focusedIndex !== -1 && gridRef.current) {
             const buttons = gridRef.current.querySelectorAll('button');
@@ -166,54 +164,42 @@ export default function LogFileSelector({
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if ((e.target as HTMLElement).tagName === 'INPUT') return;
-
-            // BLOCK navigation if a dropdown is actively open
             if (isDropdownActive) return;
 
-            // BACK Navigation
             if (e.key === 'Escape') {
-                // FIX: Check for EITHER standard modal OR graph overlay
-                // If either exists, we are "deep" in the UI, so don't go back to PCs
                 if (document.querySelector('.modal-overlay') || document.querySelector('.graph-overlay')) return;
-
                 onBack();
                 return;
             }
 
             if (files.length === 0) return;
 
-            // --- NUMERIC INPUT HANDLING ---
             if (/^[0-9]$/.test(e.key)) {
                 if (searchTimeout.current) clearTimeout(searchTimeout.current);
                 searchBuffer.current += e.key;
 
                 const num = parseInt(searchBuffer.current);
-
-                // Logic: 0 = First Item. > Length = Last Item. Else = Specific Index.
                 let targetIndex = 0;
-
                 if (num === 0) {
                     targetIndex = 0;
                 } else {
-                    targetIndex = num - 1; // Convert 1-based (UI) to 0-based (Array)
+                    targetIndex = num - 1;
                 }
 
-                // Clamp to last index
                 if (targetIndex >= files.length) {
                     targetIndex = files.length - 1;
                 }
 
                 setFocusedIndex(targetIndex);
 
-                // Reset buffer after delay
                 searchTimeout.current = setTimeout(() => {
                     searchBuffer.current = "";
                 }, 800);
                 return;
             }
 
-            // --- GRID NAVIGATION ---
-            const cols = 8; // Must match CSS grid
+            // Using auto-fill logic, estimating 8 columns roughly based on width
+            const cols = 8;
 
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key)) {
                 e.preventDefault();
@@ -242,7 +228,6 @@ export default function LogFileSelector({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [files, onBack, onSelectFile, focusedIndex, isDropdownActive]);
 
-    // Sync focused index if selectedFile changes externally
     useEffect(() => {
         if (selectedFile) {
             const idx = files.findIndex(f => f.path === selectedFile);
@@ -265,48 +250,48 @@ export default function LogFileSelector({
             display: 'flex',
             flexDirection: 'column'
         }}>
-            {/* Header */}
+            {/* Header - Compact */}
             <div style={{
-                padding: '1.5rem',
+                padding: '0.75rem 1rem', // Reduced padding
                 borderBottom: '2px solid var(--border)',
                 background: 'var(--bg-panel)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 flexWrap: 'wrap',
-                gap: '1rem',
+                gap: '0.5rem',
                 flexShrink: 0
             }}>
                 <div>
-                    <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#60a5fa', margin: 0, marginBottom: '0.5rem' }}>
+                    <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#60a5fa', margin: 0 }}>
                         Log Files - Line {pcInfo.line} PC-{pcInfo.pcNumber}
                     </h2>
-                    <div className="text-mono" style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+                    <div className="text-mono" style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
                         {pcInfo.logPath}
                     </div>
                 </div>
 
-                {/* BACK BUTTON */}
+                {/* BACK BUTTON - Compact */}
                 <div style={{ position: 'relative' }}>
                     <button
                         className="btn btn-secondary"
                         onClick={onBack}
                         onMouseEnter={() => setShowEscTooltip(true)}
                         onMouseLeave={() => setShowEscTooltip(false)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingRight: '0.75rem' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}
                     >
-                        <span>← Back to PCs</span>
+                        <span>← Back</span>
                         {/* Keyboard Hint Badge */}
                         <div style={{
-                            fontSize: '0.65rem',
+                            fontSize: '0.6rem',
                             fontWeight: 700,
                             color: 'var(--text-muted)',
                             border: '1px solid var(--border)',
                             borderRadius: '4px',
-                            padding: '0 4px',
+                            padding: '0 3px',
                             background: 'var(--bg-app)',
                             fontFamily: 'system-ui',
-                            height: '18px',
+                            height: '16px',
                             display: 'flex',
                             alignItems: 'center',
                             boxShadow: '0 1px 0 rgba(0,0,0,0.2)'
@@ -328,9 +313,9 @@ export default function LogFileSelector({
                                     background: '#1e293b',
                                     border: '1px solid #334155',
                                     color: '#f8fafc',
-                                    padding: '0.4rem 0.8rem',
+                                    padding: '0.2rem 0.5rem',
                                     borderRadius: '4px',
-                                    fontSize: '0.75rem',
+                                    fontSize: '0.7rem',
                                     whiteSpace: 'nowrap',
                                     zIndex: 50,
                                     boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
@@ -344,26 +329,26 @@ export default function LogFileSelector({
             </div>
 
             {loading ? (
-                <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-dim)' }}>
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.9rem' }}>
                     Loading log files...
                 </div>
             ) : (
                 <div style={{
-                    padding: '1.5rem',
+                    padding: '0.75rem', // Reduced padding
                     flex: 1,
                     display: 'flex',
                     flexDirection: 'column',
                     minHeight: 0,
                     overflow: 'hidden'
                 }}>
-                    {/* Date Pickers */}
-                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap', flexShrink: 0 }}>
+                    {/* Date Pickers - Compact */}
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap', flexShrink: 0 }}>
                         <Dropdown
                             label="Year"
                             options={availableYears}
                             value={selectedYear}
                             onChange={handleYearChange}
-                            placeholder="Select Year"
+                            placeholder="Year"
                             onOpenChange={setIsDropdownActive}
                         />
                         <Dropdown
@@ -371,7 +356,7 @@ export default function LogFileSelector({
                             options={availableMonths}
                             value={selectedMonth}
                             onChange={handleMonthChange}
-                            placeholder="Select Month"
+                            placeholder="Month"
                             disabled={!selectedYear}
                             onOpenChange={setIsDropdownActive}
                         />
@@ -380,7 +365,7 @@ export default function LogFileSelector({
                             options={availableDays}
                             value={selectedDay}
                             onChange={setSelectedDay}
-                            placeholder="Select Day"
+                            placeholder="Day"
                             disabled={!selectedMonth}
                             onOpenChange={setIsDropdownActive}
                         />
@@ -398,32 +383,33 @@ export default function LogFileSelector({
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
-                                marginBottom: '1rem',
+                                marginBottom: '0.5rem',
                                 flexShrink: 0
                             }}>
-                                <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#60a5fa', margin: 0 }}>
+                                <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: '#60a5fa', margin: 0 }}>
                                     Available Files ({files.length})
                                 </h3>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                                    <span style={{ marginRight: '1rem' }}>Use <b style={{ color: 'var(--text-main)' }}>Arrows</b> to navigate</span>
-                                    <span style={{ marginRight: '1rem' }}>Type <b style={{ color: 'var(--text-main)' }}>number</b> to index</span>
-                                    <span>Press <b style={{ color: 'var(--text-main)' }}>Enter</b> to open</span>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                                    <span style={{ marginRight: '0.75rem' }}>Use <b style={{ color: 'var(--text-main)' }}>Arrows</b> to navigate</span>
+                                    <span style={{ marginRight: '0.75rem' }}>Type <b style={{ color: 'var(--text-main)' }}>num</b> to index</span>
+                                    <span>Press <b style={{ color: 'var(--text-main)' }}>Enter</b></span>
                                 </div>
                             </div>
 
-                            {/* --- FILE GRID --- */}
+                            {/* --- FILE GRID (Compact) --- */}
                             <div
                                 ref={gridRef}
                                 style={{
                                     display: 'grid',
-                                    gridTemplateColumns: 'repeat(8, 1fr)',
-                                    gap: '0.75rem',
-                                    height: '350px',
+                                    // Adjusted for compactness: slightly smaller columns to fit more
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+                                    gap: '0.4rem', // Reduced gap
                                     overflowY: 'auto',
-                                    padding: '0.5rem',
+                                    padding: '0.4rem', // Reduced padding
                                     border: '1px solid var(--border)',
                                     borderRadius: 'var(--radius-md)',
-                                    backgroundColor: 'rgba(0,0,0,0.02)'
+                                    backgroundColor: 'rgba(0,0,0,0.02)',
+                                    flex: 1
                                 }}
                             >
                                 {files.map((file, idx) => {
@@ -450,16 +436,16 @@ export default function LogFileSelector({
                                                         ? '2px solid rgba(59, 130, 246, 0.5)'
                                                         : '1px solid var(--border)',
                                                 borderRadius: 'var(--radius-md)',
-                                                padding: '0.75rem',
+                                                padding: '0.4rem', // Very compact padding
                                                 cursor: 'pointer',
                                                 transition: 'all 0.2s',
                                                 backdropFilter: 'blur(12px)',
                                                 display: 'flex',
                                                 flexDirection: 'column',
                                                 alignItems: 'center',
-                                                gap: '0.5rem',
-                                                height: '100px',
-                                                minHeight: '100px',
+                                                gap: '0.25rem', // Reduced internal gap
+                                                height: '80px', // Reduced height
+                                                minHeight: '80px',
                                                 overflow: 'hidden',
                                                 outline: 'none'
                                             }}
@@ -469,9 +455,9 @@ export default function LogFileSelector({
                                             {idx < 99 && (
                                                 <div style={{
                                                     position: 'absolute',
-                                                    top: 4,
-                                                    left: 6,
-                                                    fontSize: '0.6rem',
+                                                    top: 2,
+                                                    left: 4,
+                                                    fontSize: '0.55rem',
                                                     color: isFocused ? 'var(--primary)' : 'var(--text-dim)',
                                                     fontWeight: 700,
                                                     opacity: isFocused ? 1 : 0.5
@@ -491,17 +477,18 @@ export default function LogFileSelector({
                                             }} className="hover-effect" />
 
                                             <FileText
-                                                size={24}
+                                                size={18} // Smaller Icon
                                                 color={isSelected ? 'var(--primary)' : 'var(--text-muted)'}
+                                                style={{ marginTop: '0.25rem' }}
                                             />
 
                                             <div style={{
-                                                fontSize: '0.7rem',
+                                                fontSize: '0.65rem', // Smaller text
                                                 fontWeight: 600,
                                                 color: 'var(--text-main)',
                                                 textAlign: 'center',
                                                 wordBreak: 'break-word',
-                                                lineHeight: 1.3,
+                                                lineHeight: 1.2,
                                                 width: '100%'
                                             }}>
                                                 {file.name}
@@ -510,7 +497,7 @@ export default function LogFileSelector({
                                             {/* File Size */}
                                             {file.size && (
                                                 <span className="text-mono" style={{
-                                                    fontSize: '0.6rem',
+                                                    fontSize: '0.55rem',
                                                     color: 'var(--text-dim)',
                                                     fontWeight: 500
                                                 }}>
@@ -521,10 +508,10 @@ export default function LogFileSelector({
                                             {(isSelected || isFocused) && (
                                                 <div style={{
                                                     position: 'absolute',
-                                                    top: '0.5rem',
-                                                    right: '0.5rem',
-                                                    width: '8px',
-                                                    height: '8px',
+                                                    top: '0.25rem',
+                                                    right: '0.25rem',
+                                                    width: '6px',
+                                                    height: '6px',
                                                     borderRadius: '50%',
                                                     background: isSelected ? 'var(--success)' : 'rgba(56, 189, 248, 0.4)',
                                                     boxShadow: isSelected ? '0 0 8px var(--success)' : 'none'
@@ -540,14 +527,15 @@ export default function LogFileSelector({
                             <div style={{
                                 textAlign: 'center',
                                 color: 'var(--text-dim)',
-                                padding: '3rem',
+                                padding: '2rem',
                                 background: 'var(--bg-panel)',
                                 borderRadius: 'var(--radius-lg)',
-                                border: '1px dashed var(--border)'
+                                border: '1px dashed var(--border)',
+                                flex: 1
                             }}>
-                                <FileText size={48} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
-                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>
-                                    No log files found for this date.
+                                <FileText size={32} style={{ margin: '0 auto 0.5rem', opacity: 0.3 }} />
+                                <p style={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                                    No log files found.
                                 </p>
                             </div>
                         )
@@ -562,7 +550,7 @@ export default function LogFileSelector({
                 .hover-card:hover {
                     border-color: var(--primary) !important;
                     transform: translateY(-2px);
-                    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
                 }
             `}</style>
         </div>
@@ -570,7 +558,7 @@ export default function LogFileSelector({
 }
 
 // =========================================================================
-// Dropdown Component (With Keyboard Navigation)
+// Dropdown Component (Compact)
 // =========================================================================
 function Dropdown({ label, options, value, onChange, placeholder, disabled = false, onOpenChange }: {
     label: string;
@@ -585,12 +573,10 @@ function Dropdown({ label, options, value, onChange, placeholder, disabled = fal
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const listRef = useRef<HTMLDivElement>(null);
 
-    // Notify parent when open state changes
     useEffect(() => {
         if (onOpenChange) onOpenChange(isOpen);
     }, [isOpen, onOpenChange]);
 
-    // Reset highlight when opened
     useEffect(() => {
         if (isOpen) {
             const idx = value ? options.indexOf(value) : 0;
@@ -598,7 +584,6 @@ function Dropdown({ label, options, value, onChange, placeholder, disabled = fal
         }
     }, [isOpen, value, options]);
 
-    // Scroll highlighted item into view
     useEffect(() => {
         if (isOpen && listRef.current) {
             const buttons = listRef.current.querySelectorAll('button');
@@ -641,12 +626,12 @@ function Dropdown({ label, options, value, onChange, placeholder, disabled = fal
     };
 
     return (
-        <div style={{ position: 'relative', minWidth: '180px', flex: 1 }}>
+        <div style={{ position: 'relative', minWidth: '130px', flex: 1 }}>
             <label style={{
                 display: 'block',
-                fontSize: '0.8rem',
+                fontSize: '0.7rem',
                 fontWeight: 700,
-                marginBottom: '0.5rem',
+                marginBottom: '0.25rem',
                 color: 'var(--text-dim)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
@@ -664,13 +649,16 @@ function Dropdown({ label, options, value, onChange, placeholder, disabled = fal
                     opacity: disabled ? 0.5 : 1,
                     cursor: disabled ? 'not-allowed' : 'pointer',
                     fontWeight: 600,
+                    fontSize: '0.75rem',
+                    padding: '0.3rem 0.6rem', // Smaller button padding
+                    height: 'auto',
                     border: isOpen ? '1px solid var(--primary)' : undefined
                 }}
             >
                 <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {value || placeholder}
                 </span>
-                <ChevronDown size={16} style={{
+                <ChevronDown size={14} style={{
                     transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                     transition: 'transform 0.2s'
                 }} />
@@ -683,16 +671,16 @@ function Dropdown({ label, options, value, onChange, placeholder, disabled = fal
                         ref={listRef}
                         style={{
                             position: 'absolute',
-                            top: 'calc(100% + 4px)',
+                            top: 'calc(100% + 2px)',
                             left: 0,
                             right: 0,
-                            maxHeight: '250px',
+                            maxHeight: '200px',
                             overflowY: 'auto',
                             background: 'var(--bg-card)',
-                            border: '2px solid var(--border)',
+                            border: '1px solid var(--border)',
                             borderRadius: 'var(--radius-md)',
                             zIndex: 1000,
-                            boxShadow: '0 10px 30px rgba(0,0,0,0.4)'
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.4)'
                         }}
                     >
                         {options.map((option, idx) => {
@@ -714,8 +702,10 @@ function Dropdown({ label, options, value, onChange, placeholder, disabled = fal
                                                 ? 'var(--primary-dim)'
                                                 : 'transparent',
                                         fontWeight: isSelected ? 600 : 400,
+                                        fontSize: '0.75rem',
+                                        padding: '0.3rem 0.5rem',
                                         color: isHighlighted ? 'var(--primary)' : 'inherit',
-                                        borderLeft: isHighlighted ? '3px solid var(--primary)' : '3px solid transparent'
+                                        borderLeft: isHighlighted ? '2px solid var(--primary)' : '2px solid transparent'
                                     }}
                                 >
                                     {option}
